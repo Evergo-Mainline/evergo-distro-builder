@@ -299,7 +299,6 @@ if n != 1:
     raise SystemExit(f"expected 1 bootargs node, replaced {n}")
 
 open(dts, "w").write(s)
-print(f"  memory   -> {cells}")
 print(f"  panel    -> {panel}")
 print(f"  usb      -> high-speed")
 print(f"  bootargs -> loglevel=4, watchdog_thresh=30, no softlockup_panic")
