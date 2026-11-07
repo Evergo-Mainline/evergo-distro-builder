@@ -1,0 +1,296 @@
+name: build evergo images
+
+# Builds and publishes the images users flash:
+#   boot-<distro>[-desktop]-<ram>gib.img          kernel + initramfs that mounts userdata
+#   userdata-<distro>[-desktop]-<ram>gib.simg     the distribution, grown on first boot
+#
+# The kernel is compiled ONCE per RAM variant (job "boot"), not once per distro, and
+# that job does not build any distribution rootfs: the initramfs only needs a busybox
+# (static download) and e2fsck/resize2fs for the first-boot grow, so it uses a small
+# Alpine minirootfs + e2fsprogs.  Every distro job then reuses the boot.img artifact.
+#
+# Editions: "minimal" (the current images) and "desktop" (full ubuntu-desktop, GNOME +
+# Chinese, snap-ready support).  Desktop root filesystems are much bigger than 2 GiB, which
+# is the per-asset limit of a GitHub release; those userdata images are therefore only
+# attached to the workflow run artifacts and skipped in the release.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '*.md'
+  workflow_dispatch:
+    inputs:
+      distro:
+        description: 'distribution'
+        type: choice
+        options: [arch, debian, ubuntu, fedora, all]
+        default: 'all'
+        required: true
+      ram_gib:
+        description: 'RAM size (6 or 8; "all" builds both)'
+        type: choice
+        options: ['6', '8', 'all']
+        default: 'all'
+        required: true
+      edition:
+        description: 'image edition (desktop = full ubuntu-desktop GNOME + zh_CN, snap-ready)'
+        type: choice
+        options: [minimal, desktop, xfce, phosh, both, all]
+        default: 'both'
+        required: true
+      panel:
+        description: 'panel compatible (Tianma or CSOT)'
+        default: 'k16a_36_02_0a_vdo,lcm'
+        required: true
+      rootfs_mb:
+        description: 'size of the rootfs image in MiB (desktop always uses 12288)'
+        default: '6144'
+        required: true
+
+env:
+  PANEL: ${{ github.event.inputs.panel || 'k16a_36_02_0a_vdo,lcm' }}
+  ROOTFS_MB: ${{ github.event.inputs.rootfs_mb || '6144' }}
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      boots: ${{ steps.plan.outputs.boots }}
+      rootfs: ${{ steps.plan.outputs.rootfs }}
+    steps:
+      - id: plan
+        run: |
+          distro="${{ github.event.inputs.distro || 'all' }}"
+          ram="${{ github.event.inputs.ram_gib || 'all' }}"
+          edition="${{ github.event.inputs.edition || 'both' }}"
+          [ "$distro" = "all" ] && distros="arch debian ubuntu fedora" || distros="$distro"
+          [ "$ram"    = "all" ] && rams="6 8"                              || rams="$ram"
+
+          boots=""
+          for r in $rams; do
+            [ -n "$boots" ] && boots="$boots,"
+            boots="$boots{\"ram\":\"$r\"}"
+          done
+          echo "boots={\"include\":[$boots]}" >> "$GITHUB_OUTPUT"
+
+          rootfs=""
+          add() {
+            [ -n "$rootfs" ] && rootfs="$rootfs,"
+            rootfs="$rootfs{\"distro\":\"$1\",\"ram\":\"$2\",\"edition\":\"$3\"}"
+          }
+          case "$edition" in
+            minimal) editions="minimal" ;;
+            desktop) editions="desktop" ;;
+            xfce)    editions="xfce" ;;
+            phosh)   editions="phosh" ;;
+            all)     editions="minimal desktop xfce phosh" ;;
+            *)       editions="minimal desktop" ;;
+          esac
+          for e in $editions; do
+            for d in $distros; do
+              # the graphical editions are Ubuntu-only for now
+              [ "$e" != "minimal" ] && [ "$d" != "ubuntu" ] && continue
+              for r in $rams; do add "$d" "$r" "$e"; done
+            done
+          done
+          echo "rootfs={\"include\":[$rootfs]}" >> "$GITHUB_OUTPUT"
+          echo "boots: $boots"
+          echo "rootfs: $rootfs"
+
+  # One kernel build per RAM variant; produces boot-<ram>gib.img only, no distro rootfs.
+  boot:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.boots) }}
+    name: boot / ${{ matrix.ram }} GiB
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/lib/jvm || true
+          df -h /
+
+      - name: install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            ccache bc bison flex libssl-dev libelf-dev libncurses-dev \
+            cpio gzip xz-utils zstd p7zip-full python3 device-tree-compiler patch \
+            debootstrap \
+            e2fsprogs qemu-user-static android-sdk-libsparse-utils
+          aarch64-linux-gnu-gcc --version | head -1
+          qemu-aarch64-static --version | head -1
+
+      - name: validate shell scripts
+        run: |
+          set -e
+          for f in build.sh scripts/*.sh; do bash -n "$f"; done
+
+      - name: restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: evergo-ccache-${{ hashFiles('build.sh', 'config/evergo.config') }}-${{ matrix.ram }}
+          restore-keys: |
+            evergo-ccache-${{ hashFiles('build.sh', 'config/evergo.config') }}-
+            evergo-ccache-
+
+      - name: prepare initramfs bootstrap rootfs (Alpine + e2fsprogs)
+        run: |
+          set -e
+          base="https://mirrors.tuna.tsinghua.edu.cn/alpine/latest-stable/releases/aarch64"
+          name=$(curl -fsSL "$base/" | grep -oE 'alpine-minirootfs-[0-9.]+-aarch64\.tar\.gz' | head -1)
+          echo "using $name"
+          curl -fsSL -o /tmp/alpine.tgz "$base/$name"
+          mkdir -p rootfs-alpine
+          sudo tar xzf /tmp/alpine.tgz -C rootfs-alpine
+          sudo cp /usr/bin/qemu-aarch64-static rootfs-alpine/usr/bin/
+          echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/latest-stable/main" | sudo tee rootfs-alpine/etc/apk/repositories
+          sudo cp /etc/resolv.conf rootfs-alpine/etc/resolv.conf
+          sudo chroot rootfs-alpine /usr/bin/qemu-aarch64-static /bin/sh -c 'apk add --no-cache e2fsprogs e2fsprogs-extra'
+          sudo find rootfs-alpine -maxdepth 3 \( -name e2fsck -o -name resize2fs \) -printf '%p\n'
+
+      - name: build kernel (no distribution rootfs)
+        run: |
+          chmod +x build.sh scripts/*.sh
+          sudo -E env "PATH=$PATH" "HOME=$HOME" "CCACHE_DIR=$CCACHE_DIR" \
+            "KERNEL_ONLY=1" \
+            "INITRAMFS_ROOTFS=$PWD/rootfs-alpine" \
+            "RAM_GIB=${{ matrix.ram }}" \
+            "PANEL=$PANEL" ./build.sh
+
+      - name: verify snap (squashfs) support in the kernel config
+        run: |
+          set -e
+          cfg=$(find out -name .config -path '*kernel*' | head -1)
+          [ -n "$cfg" ] || cfg=$(find out -name .config | head -1)
+          for opt in SQUASHFS_XZ SQUASHFS_ZSTD SQUASHFS_LZ4 SQUASHFS_LZO; do
+            grep -q "^CONFIG_$opt=y" "$cfg" || { echo "missing CONFIG_$opt in $cfg"; exit 1; }
+            echo "CONFIG_$opt=y"
+          done
+
+      - name: ccache stats
+        if: always()
+        run: ccache -s || sudo ccache -s || true
+
+      - name: stage boot image
+        run: |
+          set -e
+          r="${{ matrix.ram }}"
+          mkdir -p boot
+          cp out/boot.img "boot/boot-${r}gib.img"
+          ls -l boot/
+
+      - name: upload boot image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: evergo-boot-${{ matrix.ram }}gib
+          path: boot/boot-*.img
+          retention-days: 14
+
+  # One rootfs per distribution/edition; the kernel comes from the boot job.
+  distro:
+    needs: [plan, boot]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.rootfs) }}
+    name: ${{ matrix.distro }}${{ matrix.edition != 'minimal' && format(' ({0})', matrix.edition) || '' }} / ${{ matrix.ram }} GiB
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/lib/jvm || true
+          df -h /
+
+      - name: install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            ccache bc bison flex libssl-dev libelf-dev libncurses-dev \
+            cpio gzip xz-utils zstd p7zip-full python3 device-tree-compiler patch \
+            debootstrap \
+            e2fsprogs qemu-user-static android-sdk-libsparse-utils
+          mke2fs -V 2>&1 | head -1
+          qemu-aarch64-static --version | head -1
+
+      - name: download prebuilt boot image
+        uses: actions/download-artifact@v4
+        with:
+          name: evergo-boot-${{ matrix.ram }}gib
+          path: prebuilt
+
+      - name: build rootfs + userdata (kernel reused)
+        run: |
+          set -e
+          rm=12288
+          if [ "${{ matrix.edition }}" = minimal ]; then rm="$ROOTFS_MB"; fi
+          if [ "${{ matrix.edition }}" = xfce ]; then rm=8192; fi
+          if [ "${{ matrix.edition }}" = phosh ]; then rm=10240; fi
+          chmod +x build.sh scripts/*.sh
+          sudo -E env "PATH=$PATH" "HOME=$HOME" \
+            "DISTRO=${{ matrix.distro }}" \
+            "EDITION=${{ matrix.edition }}" \
+            "RAM_GIB=${{ matrix.ram }}" \
+            "PANEL=$PANEL" "ROOTFS_MB=$rm" \
+            "BOOT_IMG=$PWD/prebuilt/boot-${{ matrix.ram }}gib.img" ./build.sh
+
+      - name: rename artifacts
+        run: |
+          set -e
+          d="${{ matrix.distro }}"; r="${{ matrix.ram }}"; e="${{ matrix.edition }}"
+          suffix="${d}-${r}gib"
+          [ "$e" != minimal ] && suffix="${d}-${e}-${r}gib"
+          rm -rf stage dist && mkdir -p stage dist
+          cp out/boot.img      "stage/boot-${suffix}.img"
+          cp out/userdata.simg "stage/userdata-${suffix}.simg"
+          SZ=$(stat -c%s "stage/userdata-${suffix}.simg")
+          echo "userdata-${suffix}.simg = $SZ bytes"
+          if [ "$SZ" -le 2147483648 ]; then
+              cp stage/* dist/
+          else
+              # GitHub release assets are capped at 2 GiB; keep the big userdata in the
+              # workflow artifact only and publish just the boot image in the release.
+              echo "::warning::userdata-${suffix}.simg is $SZ bytes (>2 GiB), skipping the release asset (use the workflow artifact)"
+              cp "stage/boot-${suffix}.img" dist/
+          fi
+          (cd stage && sha256sum * > "SHA256SUM-${suffix}.txt")
+          cp "stage/SHA256SUM-${suffix}.txt" dist/
+          ls -l stage/ dist/ || true
+          echo "--- userdata is ext4? ---"
+          file out/userdata.img || true
+          dumpe2fs -h out/userdata.img 2>/dev/null | grep -E "volume name|Block count|Inode count" || true
+
+      - name: upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: evergo-${{ matrix.distro }}${{ matrix.edition != 'minimal' && format('-{0}', matrix.edition) || '' }}-${{ matrix.ram }}gib
+          path: stage/*
+          retention-days: 14
+
+      - name: publish release
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: evergo build ${{ github.run_number }}
+          body_path: .github/release-notes.md
+          files: dist/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
