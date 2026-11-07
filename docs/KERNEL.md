@@ -1,6 +1,6 @@
 # 🐧 内核移植状态
 
-内核仓库：[`ccmx200/linux-evergo`](https://github.com/ccmx200/linux-evergo)（mainline 7.3-rc4 基线）
+内核仓库：[`Evergo-Mainline/linux_evergo`](https://github.com/Evergo-Mainline/linux_evergo)（mainline 7.3-rc4 基线）
 构建仓库通过 `KERNEL_COMMIT` pin 内核提交，见 [BUILDING](BUILDING.md)。
 
 ## 分支与提交

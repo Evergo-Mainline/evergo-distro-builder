@@ -1,6 +1,6 @@
 # 已移植硬件模块 / 已知问题（evergo）
 
-内核分支：`ccmx200/linux-evergo` `master`，构建仓库 `Evergo-Mainline/evergo-distro-builder`。
+内核分支：`Evergo-Mainline/linux_evergo` `master`，构建仓库 `Evergo-Mainline/evergo-distro-builder`。
 本文件随内核 `KERNEL_COMMIT` 同步更新。
 
 ## 功能矩阵

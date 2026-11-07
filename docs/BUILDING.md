@@ -545,7 +545,7 @@ panfrost fault 归零，滑动/应用/手势都流畅。若 GPU 仍异常，可�
 
 ## 内核基线、CVE 与蓝牙（2026-11）
 
-* 内核已改为 **ccmx200/linux-evergo master**，pin 到 `c5d68dde`：它在作者最新 tree
+* 内核已改为 **Evergo-Mainline/linux_evergo master**，pin 到 `c5d68dde`：它在作者最新 tree
   基础上加了 MT6833 GPU 的 OPP 表/固定电压（0.78125 V core、0.85 V VSRAM）和
   panfrost job timeout 2000 ms。这样构建脚本不再需要在本地 patch GPU DTS。
 * 我们仍是 **7.3-rc4** 基线，所以做了两个安全处理：

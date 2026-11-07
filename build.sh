@@ -23,7 +23,7 @@
 # cross toolchain and ccache.
 set -euo pipefail
 
-KERNEL_REPO="${KERNEL_REPO:-https://github.com/ccmx200/linux-evergo.git}"
+KERNEL_REPO="${KERNEL_REPO:-https://github.com/Evergo-Mainline/linux_evergo.git}"
 # bringup/evergo-mainline is the branch the author boots on hardware; its tip adds
 # the evergo_defconfig on top of the WMT/gen4m WiFi stack, the BTIF-serdev Bluetooth
 # transport and the early-watchdog/forced-DT support.  The default branch (master)
@@ -34,7 +34,7 @@ KERNEL_BRANCH="${KERNEL_BRANCH:-master}"
 # btmtk_stp takes the per-unit BD address from
 # /lib/firmware/mediatek/mt6833/BT_Addr).  Pinning by SHA keeps builds reproducible
 # if the branch is rewritten.
-KERNEL_COMMIT="${KERNEL_COMMIT:-b72d6b3ad8c7fa6e854e756e19bb07663d6c1608}"
+KERNEL_COMMIT="${KERNEL_COMMIT:-7d015704e5d894f3a0832b64b792af9226c7677d}"
 KERNEL_SRC="${KERNEL_SRC:-}"             # reuse an existing checkout if set
 RAM_GIB="${RAM_GIB:-6}"                  # 4/6/8 GiB units exist
 PANEL="${PANEL:-k16a_36_02_0a_vdo,lcm}"  # Tianma; CSOT is k16a_42_02_0b_vdo,lcm

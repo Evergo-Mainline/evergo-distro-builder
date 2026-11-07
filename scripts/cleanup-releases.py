@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
-"""Delete old `build-<number>` releases from the ccmx200/redmi_note115G_pmos repo.
+"""Delete old `build-<number>` releases from the Evergo-Mainline/evergo-distro-builder repo.
 
 The same thing is available as the "cleanup old releases" GitHub Actions
 workflow (Actions tab -> Run workflow); this script is for doing it from a
@@ -14,7 +14,7 @@ usage:
 
 options:
     --keep N       keep the N most recent build releases (default 5)
-    --repo OWNER/NAME   default ccmx200/redmi_note115G_pmos
+    --repo OWNER/NAME   default Evergo-Mainline/evergo-distro-builder
     --dry-run      only print what would be deleted
     --no-tags      leave the git tags in place
     --yes          do not ask for confirmation
@@ -100,7 +100,7 @@ def api(token, method, path, body=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--keep", type=int, default=5, help="how many recent builds to keep")
-    ap.add_argument("--repo", default="ccmx200/redmi_note115G_pmos")
+    ap.add_argument("--repo", default="Evergo-Mainline/evergo-distro-builder")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-tags", action="store_true")
     ap.add_argument("--yes", action="store_true")

@@ -104,15 +104,14 @@ jobs:
           echo "boots: $boots"
           echo "rootfs: $rootfs"
 
-  # One kernel build per RAM variant; produces boot-<ram>gib.img only, no distro rootfs.
+  # One kernel build; the 8 GiB boot image is produced by re-running the same
+  # build with a different DTB memory node, which only relinks the Image with the
+  # new embedded DTB instead of recompiling the kernel.
   boot:
     needs: plan
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.boots) }}
-    name: boot / ${{ matrix.ram }} GiB
+    timeout-minutes: 240
+    name: boot / kernel + DTBs
     steps:
       - uses: actions/checkout@v4
 
@@ -142,9 +141,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.ccache
-          key: evergo-ccache-${{ hashFiles('build.sh', 'config/evergo.config') }}-${{ matrix.ram }}
+          key: evergo-ccache-${{ hashFiles('build.sh', 'config/evergo.config') }}
           restore-keys: |
-            evergo-ccache-${{ hashFiles('build.sh', 'config/evergo.config') }}-
             evergo-ccache-
 
       - name: prepare initramfs bootstrap rootfs (Alpine + e2fsprogs)
@@ -162,14 +160,16 @@ jobs:
           sudo chroot rootfs-alpine /usr/bin/qemu-aarch64-static /bin/sh -c 'apk add --no-cache e2fsprogs e2fsprogs-extra'
           sudo find rootfs-alpine -maxdepth 3 \( -name e2fsck -o -name resize2fs \) -printf '%p\n'
 
-      - name: build kernel (no distribution rootfs)
+      - name: build kernel + 6 GiB boot image
         run: |
           chmod +x build.sh scripts/*.sh
           sudo -E env "PATH=$PATH" "HOME=$HOME" "CCACHE_DIR=$CCACHE_DIR" \
             "KERNEL_ONLY=1" \
             "INITRAMFS_ROOTFS=$PWD/rootfs-alpine" \
-            "RAM_GIB=${{ matrix.ram }}" \
+            "RAM_GIB=6" \
             "PANEL=$PANEL" ./build.sh
+          mkdir -p boot
+          cp out/boot.img boot/boot-6gib.img
 
       - name: verify snap (squashfs) support in the kernel config
         run: |
@@ -181,23 +181,33 @@ jobs:
             echo "CONFIG_$opt=y"
           done
 
+      - name: "build 8 GiB boot image (incremental: new DTB only)"
+        run: |
+          chmod +x build.sh scripts/*.sh
+          sudo -E env "PATH=$PATH" "HOME=$HOME" "CCACHE_DIR=$CCACHE_DIR" \
+            "KERNEL_ONLY=1" \
+            "INITRAMFS_ROOTFS=$PWD/rootfs-alpine" \
+            "RAM_GIB=8" \
+            "PANEL=$PANEL" ./build.sh
+          cp out/boot.img boot/boot-8gib.img
+          ls -l boot/
+
       - name: ccache stats
         if: always()
         run: ccache -s || sudo ccache -s || true
 
-      - name: stage boot image
-        run: |
-          set -e
-          r="${{ matrix.ram }}"
-          mkdir -p boot
-          cp out/boot.img "boot/boot-${r}gib.img"
-          ls -l boot/
-
-      - name: upload boot image artifact
+      - name: upload 6 GiB boot image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: evergo-boot-${{ matrix.ram }}gib
-          path: boot/boot-*.img
+          name: evergo-boot-6gib
+          path: boot/boot-6gib.img
+          retention-days: 14
+
+      - name: upload 8 GiB boot image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: evergo-boot-8gib
+          path: boot/boot-8gib.img
           retention-days: 14
 
   # One rootfs per distribution/edition; the kernel comes from the boot job.
