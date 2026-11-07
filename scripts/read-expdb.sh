@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Read the kernel panic log without UART.
 #
 # This board has no serial console, but the kernel writes its console output into

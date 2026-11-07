@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Build a small Alpine Linux root filesystem to use *as the initramfs*.
 #
 # The hand-rolled busybox initramfs kept failing in ways that were impossible to see:

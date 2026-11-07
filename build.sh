@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Build the evergo (Redmi Note 11T 5G / MT6833) images - multi-distro.
 #
 # Produces, in out/:
@@ -23,22 +24,45 @@
 # cross toolchain and ccache.
 set -euo pipefail
 
+usage() {
+    cat <<EOF
+evergo image builder
+
+Usage: ./build.sh [--help]
+
+Environment:
+  DISTRO        arch | debian | ubuntu | fedora        (default: arch)
+  EDITION       minimal | xfce | desktop              (default: minimal)
+  RAM_GIB       6 | 8                                 (default: 6)
+  PANEL         k16a_36_02_0a_vdo,lcm (Tianma)
+                k16a_42_02_0b_vdo,lcm (CSOT)          (default: Tianma)
+  ROOTFS_MB     rootfs size in MiB                    (default: 6144, desktop 12288)
+  KERNEL_ONLY   1 = kernel + boot.img only            (default: 0)
+  BOOT_IMG      reuse an existing boot.img (skips kernel build)
+  KERNEL_REPO   kernel git URL        (default: Evergo-Mainline/linux_evergo)
+  KERNEL_COMMIT kernel commit to pin  (default: validated master tip)
+
+Outputs (in out/): boot.img, userdata.simg, userdata.img.gz
+Docs: docs/BUILDING.md
+EOF
+}
+
+case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+esac
+
 KERNEL_REPO="${KERNEL_REPO:-https://github.com/Evergo-Mainline/linux_evergo.git}"
-# bringup/evergo-mainline is the branch the author boots on hardware; its tip adds
-# the evergo_defconfig on top of the WMT/gen4m WiFi stack, the BTIF-serdev Bluetooth
-# transport and the early-watchdog/forced-DT support.  The default branch (master)
-# has the same code but not the watchdog/console bring-up changes.
+# Evergo-Mainline/linux_evergo is the mainline port repository; the default branch
+# (master) only contains the commits that were validated on the hardware.
 KERNEL_BRANCH="${KERNEL_BRANCH:-master}"
-# Pinned commit: cb9ba2ee plus the WMT/gen4m/BTIF commits, the evergo_defconfig and
-# the two Bluetooth follow-ups (btmtkuart powers the CONN-managed core through WMT;
-# btmtk_stp takes the per-unit BD address from
-# /lib/firmware/mediatek/mt6833/BT_Addr).  Pinning by SHA keeps builds reproducible
-# if the branch is rewritten.
+# Pinned commit: CPU 2.4 GHz + GPU 950/1000/1068 MHz + MT6360 Type-C/PD + keymap
+# fix + thermal trips + single cpu-map, i.e. the current validated master tip.
+# Pinning by SHA keeps builds reproducible.
 KERNEL_COMMIT="${KERNEL_COMMIT:-7d015704e5d894f3a0832b64b792af9226c7677d}"
 KERNEL_SRC="${KERNEL_SRC:-}"             # reuse an existing checkout if set
 RAM_GIB="${RAM_GIB:-6}"                  # 4/6/8 GiB units exist
 PANEL="${PANEL:-k16a_36_02_0a_vdo,lcm}"  # Tianma; CSOT is k16a_42_02_0b_vdo,lcm
-EDITION="${EDITION:-minimal}"             # minimal | desktop (ubuntu only)
+EDITION="${EDITION:-minimal}"             # minimal | xfce | desktop (ubuntu only)
 # a desktop rootfs needs much more room than the minimal one
 if [ -z "${ROOTFS_MB:-}" ]; then
     [ "$EDITION" = desktop ] && ROOTFS_MB=12288 || ROOTFS_MB=6144
@@ -47,9 +71,9 @@ fi
 # scripts/distro-$DISTRO.sh, which populates a plain directory; the image creation,
 # initramfs and boot.img packing below are shared by all of them.
 DISTRO="${DISTRO:-arch}"                         # arch | debian | ubuntu | fedora
-# CI builds the kernel once per RAM variant (job "boot") and lets the other distro
-# jobs reuse that boot.img; set BOOT_IMG to a prebuilt boot image to skip the whole
-# kernel/initramfs half of this script and only build the rootfs + userdata images.
+# CI compiles the kernel once (job "boot") and lets the other distro jobs reuse that
+# boot.img; set BOOT_IMG to a prebuilt boot image to skip the whole kernel/initramfs
+# half of this script and only build the rootfs + userdata images.
 BOOT_IMG="${BOOT_IMG:-}"
 # CI builds the boot image once per RAM variant in a job that does not want to build
 # any distribution rootfs at all: KERNEL_ONLY=1 skips the rootfs/userdata half, and

@@ -9,7 +9,7 @@
 | 主控 / 存储 | ✅ | 128 GB eMMC，首次启动自动扩到 ~106 GiB |
 | 显示 | ✅ | mediatek-drm + 90 Hz 面板；息屏/唤醒/resume 均已修 |
 | 触摸 | ✅ | Novatek NT36672C（SPI，固件内嵌并按面板自动选择）；休眠唤醒后自动复位 |
-| GPU | ✅ | Panfrost (Mali-G57)；电压固定 781250 µV / VSRAM 850 mV，DVFS 见 [KERNEL](KERNEL.md) |
+| GPU | ✅ | Panfrost (Mali-G57 MC2)，DVFS **390–1068 MHz**；OPP 电压 781.25 / 800 / 850 mV，见 [KERNEL](KERNEL.md) |
 | Wi-Fi | ✅ | MT6631 / gen4m + WMT，固件内嵌 boot.img |
 | 蓝牙 | 🟡 | CONNSYS BT 核可通过 WMT 上电（HCI 5.1），但出厂地址主线读不到，BlueZ 暂不可用 |
 | USB 网络 | ✅ | CDC-NCM，直连电脑 169.254.42.1，插路由器可上网 |
@@ -19,11 +19,11 @@
 | 充电 / 电量 | ✅ | MT6360 充电 + MT6359 库仑计；VBAT 改读 MT6360 ADC 并修正 OCV 表后，电压/容量/charge_now 均正确（详见 [KERNEL](KERNEL.md)） |
 | 手电筒 / 闪光灯 | ✅ | MT6360 白闪 LED（`/sys/class/leds/white:flash-1`）；镜像内 `evergo-torch on/off/toggle/strobe/status` 可用 |
 | RTC | ✅ | MT6359 RTC；开机/关机与定时保存，时间不丢 |
-| 温度传感器/温控 | ✅ | MT6833 LVTS：13 个热区；CPU/GPU/SOC 带 passive cooling（80/90/100°C 降频），critical 115°C |
+| 温度传感器/温控 | ✅ | MT6833 LVTS：13 个热区；CPU/GPU/SOC passive cooling（85/95/105 °C 降频），critical 115 °C |
 | CPU / GPU 调频 | ✅ | CPU 小核 950 MHz–2.0 GHz；大核 725 MHz–**2.4 GHz**（B24G bin，短时爆发，满载受 85 °C 温控回落 ~2.0 GHz）；GPU 390–**1068 MHz**；s2idle 正常 |
 | CPU idle（PSCI） | 🚧 | 实验分支 `cpuidle-exp`：状态生效但压力/休眠下会挂，未合并，见 [KERNEL](KERNEL.md) |
 | 休眠 s2idle | 🟡 | 已验证可进/出（DVFS 同时启用也正常），resume 后显示/触摸/调频恢复；默认不自动休眠 |
-| 传感器 | 🟡 | AK09918 / TSL2522 / LSM6DSO 由 SCP RISC-V 传感器 hub 独占，主线无驱动 |
+| 传感器 | 🟡 | TSL2522 光线、LSM6DSO 加速度、AK09918 磁力计：ALS/加速度可用，磁力计/陀螺仍需 SCP hub 支持 |
 | 基带 / SIM | ❌ | 无 CCCI/MDF 驱动，通话/短信/数据暂不支持，见 [CAMERA-MODEM](CAMERA-MODEM.md) |
 | 相机 | ❌ | sensor 驱动有，但无 camsys ISP/seninf 平台驱动，见 [CAMERA-MODEM](CAMERA-MODEM.md) |
 | NFC | ❌ | 本机无 NFC 硬件 |
@@ -71,10 +71,10 @@
 
 ## 已知限制
 
-1. **内存高压力可能 panic** — 与本机内存/内核行为有关，非单一驱动问题；镜像用 zram 缓解，重负载前确认交换已启用。详见 [PANIC](PANIC.md)。
-2. **CPU/GPU 调频未验证** — 频率目前固定，跑分/功耗非最优。
-3. **休眠默认关闭** — 避免未知唤醒问题；可手动 `echo mem > /sys/power/state` 测试。
-4. **蓝牙不可用** — 地址问题未解决。
+1. **内存压力 panic 已修复** — 根因是 LK mblock 未保留（内核 `7c0388f5`），`mem=4G` 规避不再需要；详见 [PANIC](PANIC.md)。
+2. **CPU/GPU 调频已可用** — 大核短时 2.4 GHz、GPU 最高 1068 MHz；持续满载受 85 °C 温控回落。详见 [KERNEL](KERNEL.md)。
+3. **休眠默认不自动触发** — `s2idle` 已验证可进/出，可手动 `echo mem > /sys/power/state` 测试。
+4. **蓝牙不可用** — BT 核可上电、HCI 5.1，但无出厂地址，BlueZ 暂不可用。
 5. **面板必须选对** — 见上表。
 6. **无基带/相机/NFC** — 需要长期驱动工作。
 
@@ -96,9 +96,9 @@
 | `vm.dirty_background_ratio=5`、`dirty_ratio=15` | 避免大文件写入时一次回写过多，UFS 上会卡桌面数秒 |
 | `vm.vfs_cache_pressure=50` | 内存紧张时多保留 dentry/inode 缓存 |
 | UFS 调度器设为 `none`、`read_ahead_kb=128` | UFS 自带深队列，mq-deadline 只增加开销 |
-| 温控 passive 阈值 80/90/100 → 85/95/105 °C | 原先 80 °C 就开始降频，持续负载只能跑 ~1.75 GHz；提高后能维持更高频率（critical 仍 115 °C） |
+| 温控 passive 阈值 85/95/105 °C | 原先 80 °C 就开始降频，持续负载只能跑 ~1.75 GHz；提高后能维持 1.95–2.0 GHz（critical 仍 115 °C） |
 
 对应的文件：`rootfs-overlay.tar.gz` 里的 `/etc/sysctl.d/95-evergo-performance.conf`、
 `/etc/udev/rules.d/60-evergo-ufs.rules`、`/usr/local/bin/evergo-swapfile`，
-以及内核 `ee6cb578`（温控 trip）。
+以及内核 `a10fac3a`（温控 trip + GPU cooling map）。
 

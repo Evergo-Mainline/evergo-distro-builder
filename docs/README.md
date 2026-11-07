@@ -1,35 +1,53 @@
-# 📚 文档索引
+# 📚 Evergo 文档索引
 
-文档按"只想用"和"想改/想调"分开。不确定看哪篇？先看下面的分类。
+> 红米 Note 11T 5G（`evergo` / `everpal`，MT6833）mainline Linux 的全部文档。
+> 建议顺序：**新用户 → 刷机教程；开发者 → 构建指南 + 内核记录；排障 → 踩坑记录。**
 
-## 使用类（刷机、日常使用）
+<div align="center">
 
-| 文档 | 什么时候看 |
+| 🚀 上手 | 🛠️ 开发 | 🔍 排障 |
+|:---|:---|:---|
+| [刷机教程](TUTORIAL.md) | [构建指南](BUILDING.md) | [踩坑记录](TROUBLESHOOTING.md) |
+| [镜像矩阵](../README.md#️-镜像矩阵) | [内核提交](KERNEL.md) | [抓 panic](PANIC.md) |
+| [硬件支持](HARDWARE.md) | [功能/模块](MODULES.md) | [压力测试](STRESS.md) |
+| [常见命令](../README.md#-常用命令) | [内核配置](../config/evergo.config) | [vendor 移植](VENDOR-PORT.md) |
+
+</div>
+
+---
+
+## 📖 文档一览
+
+| 文档 | 一句话说明 | 适合谁 |
+|:---|:---|:---|
+| [TUTORIAL.md](TUTORIAL.md) | 下载 → fastboot → 首次开机 → SSH/Wi-Fi 全流程 | 第一次刷机的人 |
+| [BUILDING.md](BUILDING.md) | 本地/CI 构建、发行版矩阵、内核配置、产物说明 | 想自己出包的人 |
+| [MODULES.md](MODULES.md) | 每个硬件功能对应的内核模块、固件、补丁 | 想改内核的人 |
+| [HARDWARE.md](HARDWARE.md) | CPU/GPU/充电/传感器/Snap/PD 的实测支持状态 | 想确认功能是否可用 |
+| [KERNEL.md](KERNEL.md) | 每个内核提交做了什么、实测数据如何 | 跟进内核进展 |
+| [PANIC.md](PANIC.md) | 无串口时怎么从 expdb 取崩溃日志 | 遇到随机 panic |
+| [STRESS.md](STRESS.md) | CPU/GPU/内存/IO 压力测试方法与最终数据 | 做稳定性验证 |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 按症状查：启动失败/不扩容/连不上/构建报错 | 出问题的人 |
+| [VENDOR-PORT.md](VENDOR-PORT.md) | 从 vendor 内核移植功能的思路与踩坑 | 深入开发者 |
+| [EVERGO-CONTINUE.md](EVERGO-CONTINUE.md) | 后续开发计划与待办 | 想接着做的人 |
+| [CAMERA-MODEM.md](CAMERA-MODEM.md) | 相机/基带移植调研记录 | 做外设移植的人 |
+
+---
+
+## 🧭 常见问题速查
+
+| 症状 | 先看 |
 |:---|:---|
-| [../README.md](../README.md) | 项目是什么、快速开始、常用命令 |
-| [TUTORIAL.md](TUTORIAL.md) | 第一次刷机：下载、fastboot、首次开机、联网、包管理 |
-| [HARDWARE.md](HARDWARE.md) | 支持哪些硬件、面板/触摸怎么选、有哪些限制 |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 开不了机 / 连不上 / 不扩容 / 构建报错，按症状查 |
-| [PANIC.md](PANIC.md) | 内核崩了、无串口时怎么把 trace 抓出来 |
+| 刷完黑屏 / 不进系统 | [TROUBLESHOOTING · 启动类](TROUBLESHOOTING.md) |
+| 存储没变成 106 GiB | [TROUBLESHOOTING · 扩容](TROUBLESHOOTING.md) |
+| SSH 连不上 `169.254.42.1` | [教程 · 连接](TUTORIAL.md) |
+| Wi-Fi 扫描不到 | [踩坑记录 · 网络](TROUBLESHOOTING.md) |
+| 随机 panic / 死机 | [PANIC.md](PANIC.md) |
+| 构建缺少依赖 / 失败 | [BUILDING.md](BUILDING.md) |
+| 想开更高频率 | [KERNEL.md](KERNEL.md) + [STRESS.md](STRESS.md) |
 
-## 技术类（构建、内核、调试）
+---
 
-| 文档 | 什么时候看 |
-|:---|:---|
-| [BUILDING.md](BUILDING.md) | 本地构建 boot.img / 全量镜像，CI 参数，多发行版机制 |
-| [KERNEL.md](KERNEL.md) | 内核仓库结构、已合入提交、DVFS/idle 分支与验证计划 |
-| [MODULES.md](MODULES.md) | 各子系统（显示/触摸/WiFi/BT/音频/充电/传感器）的驱动与设备树 |
-| [STRESS.md](STRESS.md) | 压力测试项目与历史结果 |
-| [CAMERA-MODEM.md](CAMERA-MODEM.md) | 摄像头/基带的硬件现状、阻塞点与工作量分析 |
-| [VENDOR-PORT.md](VENDOR-PORT.md) | 从 vendor 镜像/DTB 提取的信息摘要 |
-
-## 变更记录
-
-- 每个构建版本的改动见 [Release Notes](../.github/release-notes.md) 或对应 Release 页面。
-
-## 维护约定
-
-1. **README 只放用户需要的内容**（是什么、怎么刷、怎么连、已知限制）；技术细节一律放 `docs/`。
-2. 新增文档先在上面的索引表里登记，并放到正确的分类下。
-3. 内部交接/临时清单不提交到仓库；需要保留的写进对应的技术文档。
-4. Release Notes 面向所有用户，按"新增 / 修复 / 已知问题"组织，不写实现细节。
+> 💡 文档里的命令默认以 `root` 用户执行（密码 `evergo`）；本地构建以 Ubuntu 24.04 为参考环境。
+>
+> 📜 本仓库文档与代码均以 **GPL-3.0-or-later** 发布，见 [LICENSE](../LICENSE)。

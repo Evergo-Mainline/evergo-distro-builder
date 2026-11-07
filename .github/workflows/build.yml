@@ -1,13 +1,14 @@
-name: build evergo images
+name: 🏗️ build evergo images
 
 # Builds and publishes the images users flash:
 #   boot-<distro>[-desktop]-<ram>gib.img          kernel + initramfs that mounts userdata
 #   userdata-<distro>[-desktop]-<ram>gib.simg     the distribution, grown on first boot
 #
-# The kernel is compiled ONCE per RAM variant (job "boot"), not once per distro, and
-# that job does not build any distribution rootfs: the initramfs only needs a busybox
-# (static download) and e2fsck/resize2fs for the first-boot grow, so it uses a small
-# Alpine minirootfs + e2fsprogs.  Every distro job then reuses the boot.img artifact.
+# The kernel is compiled ONCE (job "boot"), then the 8 GiB boot image is produced by
+# rerunning build.sh with RAM_GIB=8, which only regenerates the DTB and relinks the
+# Image with the new embedded DTB.  The boot job does not build any distribution
+# rootfs: the initramfs only needs e2fsck/resize2fs for the first-boot grow, so it
+# uses a small Alpine minirootfs + e2fsprogs.  Every distro job reuses boot.img.
 #
 # Editions: "minimal" (the current images) and "desktop" (full ubuntu-desktop, GNOME +
 # Chinese, snap-ready support).  Desktop root filesystems are much bigger than 2 GiB, which
@@ -54,6 +55,10 @@ env:
   PANEL: ${{ github.event.inputs.panel || 'k16a_36_02_0a_vdo,lcm' }}
   ROOTFS_MB: ${{ github.event.inputs.rootfs_mb || '6144' }}
   CCACHE_DIR: ${{ github.workspace }}/.ccache
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write

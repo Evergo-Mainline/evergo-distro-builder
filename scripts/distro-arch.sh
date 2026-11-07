@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Arch Linux ARM aarch64 root filesystem for evergo.
 #
 # Usage: distro-arch.sh <rootfs-dir>

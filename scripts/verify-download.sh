@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # verify-download.sh - shared checksum/signature verification for rootfs downloads.
 #
 # Sourced by scripts/distro-*.sh:

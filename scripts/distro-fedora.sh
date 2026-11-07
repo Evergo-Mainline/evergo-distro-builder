@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Fedora root filesystem for evergo, from the OFFICIAL prebuilt container base tarball.
 #
 # No dnf --installroot: Fedora publishes Fedora-Container-Base-*.aarch64.oci.tar.xz (an OCI

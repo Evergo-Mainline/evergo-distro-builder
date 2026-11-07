@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Ubuntu root filesystem for evergo, from the OFFICIAL prebuilt base tarball.
 #
 # No debootstrap: Canonical ships ubuntu-base-<ver>-base-arm64.tar.gz, which is exactly

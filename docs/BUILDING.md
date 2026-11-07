@@ -243,7 +243,7 @@ scripts/distro-common.sh    debian/ubuntu/fedora 的公共配置
 
 ```
 ① 取内核源码
-   KERNEL_COMMIT=5bba54524ae56cc211f823a7bf586271e5cb2eb5  ← 锁定版本（bringup/evergo-mainline tip，含蓝牙修复）
+   KERNEL_COMMIT=7d015704e5d894f3a0832b64b792af9226c7677d  ← 锁定版本（Evergo-Mainline/linux_evergo master tip）
    git fetch --depth 1 origin $KERNEL_COMMIT && git checkout FETCH_HEAD
    然后套用 config/patches/*.patch（目前一个：SOC 上跳过重复注册的 HIF-SDIO 驱动，
    否则 WMT 初始化在 /dev/stpwmt 出现之前就 -EBUSY 退出）
@@ -534,10 +534,10 @@ Phosh/GNOME 因此「卡爆」。
 参考同 SoC 的 [a22x-mainline](https://github.com/Dodaskot/a22x-mainline)（Galaxy A22 5G, MT6833）：
 厂商 OPP 电压依赖 EEMG 校准，mainline 不做校准，必须用保守电压。照它的结论改成
 
-* GPU core（VPROC1 buck）= 固定 **0.78125 V**；
+* GPU core（VPROC1 buck）= 0.78125 V（≤950 MHz）/ 0.80 V（1000 MHz）/ 0.85 V（1068 MHz）；
 * GPU SRAM（VSRAM_MD LDO）= 固定 **0.85 V**；
-* 390–955 MHz 的 8 个 OPP 全部写 781250（`build.sh` 的 DTS 适配里自动注入
-  `gpu_opp_table` 和 regulator 覆盖，避免树内手改漂移）。
+* OPP 表：390 / 467 / 545 / 622 / 700 / 790 / 880 / 950 / 1000 / **1068 MHz**
+  （已在内核 `bf899a2f` 中，build 不需要再改 DTS）。
 
 改完后真机验证：Phosh 使用 `GL renderer: Mali-G57 MC2 (Panfrost)`，dmesg 中
 panfrost fault 归零，滑动/应用/手势都流畅。若 GPU 仍异常，可以临时用
@@ -545,9 +545,9 @@ panfrost fault 归零，滑动/应用/手势都流畅。若 GPU 仍异常，可�
 
 ## 内核基线、CVE 与蓝牙（2026-11）
 
-* 内核已改为 **Evergo-Mainline/linux_evergo master**，pin 到 `c5d68dde`：它在作者最新 tree
-  基础上加了 MT6833 GPU 的 OPP 表/固定电压（0.78125 V core、0.85 V VSRAM）和
-  panfrost job timeout 2000 ms。这样构建脚本不再需要在本地 patch GPU DTS。
+* 内核已改为 **Evergo-Mainline/linux_evergo master**，pin 到 `7d015704`：包含 CPU 2.4 GHz、
+  GPU 950/1000/1068 MHz、MT6360 Type-C/PD、音量键修正、温控 trip 85/95/105 °C、
+  单 MC 域 cpu-map 等全部上机验证过的提交。
 * 我们仍是 **7.3-rc4** 基线，所以做了两个安全处理：
   * **CVE-2026-31648**（filemap_map_pages nr_pages 下溢，arm64 上 stress 触发
     Bad page state）：本 tree 已经包含修复（`end_pgoff` 在 `next_uptodate_folio()` 之前计算），
@@ -562,17 +562,18 @@ panfrost fault 归零，滑动/应用/手势都流畅。若 GPU 仍异常，可�
 
 ## 硬件按键（2026-11-03）
 
-* DTS 里加了 `mt6359-keys`（KEY_POWER + home key = KEY_VOLUMEDOWN）和
-  `keypad@10010000`（mt6779-keypad，音量上 KPCOL0/1，keymap 用 rows*cols 个
-  keycode，不是三元组）。
+* DTS 里加了 `mt6359-keys`（KEY_POWER + home key = **KEY_VOLUMEUP**）和
+  `keypad@10010000`（mt6779-keypad，音量减 KPCOL0/1，keymap 用 rows*cols 个
+  keycode，不是三元组）。早期版本音量加减相反，已在内核 `8a430c3a` 修正。
 * 配置 `CONFIG_KEYBOARD_MTK_PMIC=y` / `CONFIG_KEYBOARD_MT6779=y`。
 * 真机（SSH）验证：`/proc/bus/input/devices` 里出现
   `mt6779-keypad`（event0）和 `mtk-pmic-keys`（event1），dmesg 无报错。
   物理按键动作留给用户实测。
 
-## 音频/麦克风（下一步，参考已备好）
+## 音频/麦克风（已实现）
 
-当前镜像没有声卡。已从 **stock vendor DTB**（`config/vendor_dtb.bin`，用
+声卡已随内核 `fa946a3b` 落地（MT6833 AFE + MT6359 codec + 功放），`speaker-test` /
+`arecord` 实测正常。以下保留当时的移植调研记录：从 **stock vendor DTB**（`config/vendor_dtb.bin`，用
 `dtc -I dtb -O dts` 解出）拿到 evergo 的真实音频布局：
 
 * `sound { compatible = "mediatek,mt6833-mt6359-sound"; }`

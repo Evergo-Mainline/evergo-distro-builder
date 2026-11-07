@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 import struct, os
 RAW="/mnt/d/evergo/rom/super.raw"; OUT="/mnt/d/evergo/rom/parts"
 os.makedirs(OUT, exist_ok=True)

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Copy an aarch64 binary and its shared-library closure into an initramfs tree.
 
 The initramfs in this build is busybox-static only, so a dynamically linked tool such as

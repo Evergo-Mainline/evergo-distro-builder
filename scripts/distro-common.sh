@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # 通用部分：把一个解压好的官方 rootfs 目录配置成可启动的 evergo 镜像。
 #
 # 用法（由 distro-*.sh 调用）：

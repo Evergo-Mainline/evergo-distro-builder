@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # 在 initramfs 里通过 configfs 建立 USB 网络 gadget。
 #
 # 先试 CDC-NCM（包聚合，比 RNDIS 快 2-3 倍），失败就退回 RNDIS。

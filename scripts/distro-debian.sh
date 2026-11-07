@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Debian root filesystem for evergo, built with debootstrap.
 #
 # Earlier revisions downloaded "debian-<suite>-generic-arm64.tar.xz" from

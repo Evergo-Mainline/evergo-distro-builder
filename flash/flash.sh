@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Flash the evergo images from a Linux/macOS host.
 #
 # boot.img alone is sufficient - it carries the rootfs and installs it on first

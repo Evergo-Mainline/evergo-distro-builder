@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """
 Pack an Android boot image v2 with the field layout the MTK bootloader expects.
 

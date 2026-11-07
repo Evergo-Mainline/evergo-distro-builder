@@ -2,43 +2,67 @@
 
 # 📱 红米 Note 11T 5G · 多发行版 Linux
 
-**把手机变成一台 106 GiB 存储、SSH 可登的 Linux 电脑**
+**把手机变成一台 106 GiB 存储、SSH 可登、Snap 可用的 Linux 电脑**
 
 [![设备](https://img.shields.io/badge/设备-evergo%20%2F%20everpal-FF6900?style=for-the-badge&logo=xiaomi&logoColor=white)](https://github.com/Evergo-Mainline/evergo-distro-builder)
 [![SoC](https://img.shields.io/badge/SoC-MT6833%20天玑810-00A3E0?style=for-the-badge)](https://github.com/Evergo-Mainline/evergo-distro-builder)
 [![内核](https://img.shields.io/badge/内核-7.3.0--rc4-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/Evergo-Mainline/linux_evergo)
 [![发行版](https://img.shields.io/badge/发行版-Arch%20%7C%20Debian%20%7C%20Ubuntu%20%7C%20Fedora-1793D1?style=for-the-badge)](https://github.com/Evergo-Mainline/evergo-distro-builder/releases)
+[![License](https://img.shields.io/badge/License-GPL--3.0--or--later-2ea44f?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Evergo-Mainline/evergo-distro-builder/build.yml?style=for-the-badge&label=CI)](https://github.com/Evergo-Mainline/evergo-distro-builder/actions)
 
 </div>
 
----
-
-## 这是什么
-
-Redmi Note 11T 5G（MT6833 / 天玑 810）的 **mainline Linux** 镜像。不是 Android，也不是套壳 —— 是跑在手机裸硬件上的完整 Linux 系统。
-
-基于 [KevinLmK0702](https://github.com/KevinLmK0702/linux-evergo) 的内核移植，本项目负责打包成**刷完就能用**的成品。
-
-| 发行版 | 版本 | userdata A 体积 | 包管理器 |
-|:---|:---|:---:|:---|
-| 🟦 Arch Linux ARM | rolling | 840 MB | `pacman` |
-| 🟥 Debian | 13 (trixie) | 162 MB | `apt` |
-| 🟧 Ubuntu | 26.04 LTS | 206 MB | `apt` |
-| 🟪 Fedora | 44 | 142 MB | `dnf` |
-
-每个发行版都有 **6 GiB / 8 GiB** 两种内存变体（对应手机 RAM）。
+> 🍥 跑在手机裸硬件上的 **mainline Linux** —— 不是 Android，也不是套壳。
+> 基于 [Evergo-Mainline/linux_evergo](https://github.com/Evergo-Mainline/linux_evergo) 主线内核，本仓库负责把它打包成**刷完就能用**的成品镜像。
 
 ---
 
-## 快速开始
+## 📑 目录
 
-### 1. 下载
+- [✨ 特性](#-特性)
+- [🚀 快速开始](#-快速开始)
+- [🖼️ 镜像矩阵](#️-镜像矩阵)
+- [🎛️ 硬件支持](#️-硬件支持)
+- [⚡ 性能数据](#-性能数据)
+- [🛠️ 自行构建](#️-自行构建)
+- [📖 文档](#-文档)
+- [🧰 常用命令](#-常用命令)
+- [⚠️ 警告](#️-警告)
+- [🙏 致谢](#-致谢)
+- [📜 License](#-license)
 
-[**Releases**](https://github.com/Evergo-Mainline/evergo-distro-builder/releases) → 选 `boot-<发行版>-<内存>gib.img` + `userdata-<发行版>-<内存>gib.img.gz`
+---
 
-> 🧠 内存变体必须和手机匹配。4 GiB 机型用 `6gib`，**8 GiB 机型必须用 `8gib`**。
+## ✨ 特性
 
-### 2. 刷入
+| | |
+|:---|:---|
+| 📱 **完整 Linux** | Arch / Debian / Ubuntu / Fedora 四发行版，`systemd` + 包管理器 + SSH，开箱即用 |
+| 💾 **106 GiB 存储** | 128 GB eMMC 首次开机自动扩容，不再是玩具系统 |
+| 🖥️ **三种形态** | `minimal` 命令行、`xfce` 轻量桌面、`desktop` 完整 Ubuntu 桌面（GNOME + Snap） |
+| 📶 **Wi-Fi / USB 网络** | MediaTek WMT/gen4m Wi-Fi，CDC-NCM USB 网卡（`169.254.42.1`） |
+| 🎮 **2.4 GHz + 1068 MHz** | 大核短时 2.4 GHz、GPU 最高 1068 MHz，性能全开（详见[性能数据](#-性能数据)） |
+| 🔋 **电源完整** | MT6360 充电 + MT6359 电量计 + Type-C/PD 节点，`upower`/`power-profiles-daemon` 可用 |
+| 🌡️ **温控 / 降频** | 13 路 LVTS + passive cooling，满载自动降频不烫手 |
+| 📦 **Snap 可用** | 内核启用 squashfs XZ/ZSTD/LZ4/LZO，`snap install` 正常 |
+| 🔐 **安全** | 内核 7.3 主线 + AVB 签名启动链，SSH 密码登录 |
+
+---
+
+## 🚀 快速开始
+
+### 1️⃣ 下载
+
+前往 [**Releases**](https://github.com/Evergo-Mainline/evergo-distro-builder/releases)，按手机内存挑选：
+
+- `boot-<发行版>-<内存>gib.img` —— 内核 + initramfs
+- `userdata-<发行版>-<内存>gib.img.gz` —— 根文件系统
+
+> 🧠 **内存必须匹配**：6 GiB 机型用 `6gib`，8 GiB 机型用 `8gib`。
+> （4 GiB 机型也使用 `6gib`；8 GiB 机型混用 `6gib` 会少识别 2 GiB 内存。）
+
+### 2️⃣ 刷入
 
 ```bash
 gunzip userdata-debian-6gib.img.gz
@@ -49,131 +73,179 @@ fastboot -S 200M flash userdata  userdata-debian-6gib.img
 fastboot reboot
 ```
 
-> 💡 Windows 版 fastboot 处理不了 6 GiB 文件，见 **[教程](docs/TUTORIAL.md#windows-用户注意)**。
+> 💡 Windows 版 fastboot 处理不了大文件，见 **[刷机教程 · Windows 用户注意](docs/TUTORIAL.md#windows-用户注意)**。
 
-### 桌面版 / 轻量桌面（可选）
+### 3️⃣ 连上
 
-CI 的 `edition` 参数支持三种镜像：
-
-* `minimal`：最小系统（SSH + nmtui + WiFi + 触摸），最稳、最省内存；
-* `desktop`：**完整 Ubuntu 桌面**（`apt install ubuntu-desktop`，GNOME 全套应用 + 中文；**首次开机进入 GNOME Initial Setup 自建账号**，不预建用户、不自动登录；Snap 可用）；
-* `xfce`：**轻量桌面** XFCE + LightDM（内存占用明显低于 GNOME，适合这台内存不太稳的机器）。
-
-三者都带中文语言包/字体和 `zh_CN.UTF-8`。
-
-### 桌面版（可选）
-
-CI 的 `edition=desktop` 会构建 **完整 Ubuntu 桌面 + 中文语言/输入法** 版本（`ubuntu-desktop`
-meta 包 + recommends，含 GNOME 全套应用；再加 `language-pack-zh-hans` +
-`fonts-noto-cjk` + `ibus-libpinyin`）。**桌面镜像不预建账号**：首次开机由 GDM 启动
-GNOME Initial Setup，用户自己设置语言/账号/密码。
-内核已启用 squashfs 的 XZ/ZSTD/LZ4/LZO 解压，`snap install snap-store` 等可以直接使用。
-桌面 rootfs 约 12 GiB，**userdata 稀疏镜像超过 2 GiB，所以只放在
-workflow artifacts，不进 Release**；Release 里只有它的 `boot-*.img` 和小于 2 GiB 的镜像。
-
-### 屏幕面板与触摸
-
-* 这台机器有两种面板：**Tianma** (`k16a_36_02_0a_vdo`) 和 **CSOT** (`k16a_42_02_0b_vdo`)；
-  编译时用 `PANEL=` 选对应的（默认 Tianma）。
-* 触摸屏固件**按 DT 里的面板节点自动选择**（Tianma → `novatek_ts_fw.bin`，CSOT →
-  `novatek_ts_ct_fw.bin`，见 `config/patches/0003-novatek-touch-fw-by-panel.patch`）。
-  之前驱动把 CSOT 固件写死，在 Tianma 屏上会出现**右侧一条触控不灵**，就是这个原因。
-* 面板选错的表现：显示/触摸几何异常；刷机前确认机型面板（Tianma/CSOT），或分别试两个 `PANEL` 构建。
-
-### 已知问题：高负载下的内存不稳定（重要）
-
-这台机器在**高负载/内存压力大**时会随机 panic（`pc : 0x0`、slab refill NULL、Bad page map），
-排查结果**不是 WiFi/显示驱动的问题**：`memtester 4G` 直接报出数百万个数据不匹配，而
-`memtester 3G` 基本干净——错误跟「用到了多少内存」相关，详见 [panic 记录](docs/PANIC.md)。
-
-* 镜像里已加 `evergo-swapfile.service`（RAM < 7 GiB 时首次启动建 3 GiB swap），降低压力；
-* 内存压力 panic 已由内核 `12717b45`（LK mblock 保留）修复，**不再需要 `mem=4G`**；
-* 装桌面优先用 CI 的 desktop 镜像（完整 `ubuntu-desktop`）；内存 panic 已修复，手机上直接
-  `apt install ubuntu-desktop` 也安全，只是比较慢。
-
-### 3. 连上
-
-**首次开机约 1-10 分钟**（自动扩容 6 GiB → 106 GiB），然后：
+首次开机自动扩容（约 1–10 分钟），随后：
 
 ```bash
 ssh root@169.254.42.1        # 密码 evergo
 ```
 
-**没有串口** —— 手机通过 USB RNDIS 网卡接入。插电脑零配置，插路由器可上网。
+手机通过 **USB RNDIS/NCM 网卡**接入：直连电脑零配置；插路由器还能上网。
+没有串口 —— 一切操作走 SSH 或 `screen` 外接（可选）。
 
-Wi-Fi 也已可用（上游内核内置 MediaTek WMT/gen4m 驱动，固件直接嵌在 `boot.img` 里），和 USB 网络互不影响：
+---
 
-```bash
-evergo-wifi scan
-evergo-wifi connect "Wi-Fi 名称" "密码"
-```
+## 🖼️ 镜像矩阵
 
-也可以用 **NetworkManager 的 TUI** 配网（镜像里带 `nmtui`）：
+### 发行版
 
-```bash
-nmtui                 # 《激活连接》里选 Wi-Fi，输入密码即可
-nmcli device wifi list
-```
+| 发行版 | 版本 | userdata 体积 | 包管理器 |
+|:---|:---|:---:|:---|
+| 🟦 **Arch Linux ARM** | rolling | 840 MB | `pacman` |
+| 🟥 **Debian** | 13 (trixie) | 162 MB | `apt` |
+| 🟧 **Ubuntu** | 26.04 LTS | 206 MB | `apt` |
+| 🟪 **Fedora** | 44 | 142 MB | `dnf` |
 
-开机自动连接：把 `/etc/evergo/wifi.conf.example` 复制成 `/etc/evergo/wifi.conf`，填好 `SSID=` / `PSK=` 即可。
+### 桌面形态（`edition`）
 
-> 💾 6 GiB 版本内置 3 GiB swapfile（`evergo-swapfile.service`）：这台机器的内核在内存压力大时会在 slab 分配器里 panic，装桌面/跑重负载前务必确认 `swapon --show` 有输出。
+| edition | 内容 | 适合 |
+|:---|:---|:---|
+| `minimal` | SSH + NetworkManager + `nmtui` + `evergo-*` 工具 | 服务器 / 最稳最省内存 |
+| `xfce` | XFCE + LightDM + 中文 | 想要图形界面但不吃内存 |
+| `desktop` | **完整 `ubuntu-desktop`**：GNOME 全套应用、中文语言包、IBus 拼音、Snap | 当主力桌面用 |
 
-> 🔌 NetworkManager 只接管 `wlan0`（usb0/ap0/p2p0/wlan1 都标了 unmanaged），所以 nmtui 里建出来的连接一定绑在 wlan0 上；2.4G 和 5G（如 `cuicanmx_5G`）都能连。
+> 🧑‍🚀 `desktop` 镜像**不预建账号**：首次开机由 GDM 拉起 **GNOME Initial Setup**，
+> 语言、账号、密码全部由用户自己设置，真正做到开箱即用。
 >
-> 🔌 Wi-Fi 需要先由 `evergo-wmt.service` 把 CONNSYS（WMT）拉起来：它执行的是 Android 上 `wmt_loader`/`wmt_launcher` 的那套 ioctl，并常驻应答 ROM patch 请求，之后 `/dev/wmtWifi` 才能给 WLAN 核上电、gen4m 才会 probe 出 `wlan0`。开机自动运行，`systemctl status evergo-wmt` 可以看状态；`evergo-wifi up` 也会在需要时把它拉起来。
+> 📦 桌面 rootfs 约 12 GiB，userdata 稀疏镜像超过 2 GiB，因此**只进 Actions artifacts，不进 Release**；
+> Release 里提供对应的 `boot-*.img` 和轻量镜像。
 
-📖 **完整图文教程** → **[docs/TUTORIAL.md](docs/TUTORIAL.md)**
+### 面板与触摸
 
----
+| 面板 | `PANEL` | 触摸固件 |
+|:---|:---|:---|
+| 天马 Tianma | `k16a_36_02_0a_vdo` | `novatek_ts_fw.bin` |
+| 华星 CSOT | `k16a_42_02_0b_vdo` | `novatek_ts_ct_fw.bin` |
 
-## 硬件支持
-
-| 子系统 | 状态 |
-|:---|:---:|
-| 主控 MT6833 / 天玑 810（8 核） | ✅ |
-| 存储 128 GB eMMC → 自动扩到 106 GiB | ✅ |
-| 显示（`mediatekdrmfb` 帧缓冲控制台） | ✅ |
-| Wi-Fi（MT6631 / gen4m；WMT 驱动与固件内置内核，`/usr/sbin/wmt-init` 拉起；带 `NetworkManager` + `nmtui`） | ✅ |
-| 触摸（Novatek NT36672C，固件内嵌） | ✅ |
-| 蓝牙（CONNSYS 内置 BT 核，BTIF + btmtkuart 已编入内核；BlueZ 控制器地址待解决） | 🟡 |
-| CDC-NCM（426 Mbps 链路，实测 ~5.2 MB/s）（高速模式，~4.5 MB/s） | ✅ |
-| SSH 密码登录 | ✅ |
-| 硬件看门狗 | ✅ |
-
-**未完成**：PMIC、**CPU 调频（cpufreq）**、基带、音频、相机、触摸固件、USB Host
-
-> 📡 Wi-Fi/蓝牙由新的内核 pin 提供：`bringup/evergo-mainline` 的 `5bba5452`（作者 b350 实测树 + 两个蓝牙修复提交）——cb9ba2ee + WMT/gen4m WiFi 栈 + BTIF 蓝牙 + `evergo_defconfig`（含早期看门狗接管等运行期增强）。
-> 本仓库在该树上只加一个内核补丁（`config/patches/0001`：SOC 上跳过重复的 HIF-SDIO 注册，否则 WMT 初始化会 -EBUSY 退出）。以前 `config/port` 里那套 DTS/头文件 vendored 补丁已删除。
-> 蓝牙与 WiFi 共用 CONNSYS 的上电/ROM patch 流程：`evergo-wmt.service` 拉起 CONNSYS 后，`hciconfig hci0 up` 已经能通过 WMT 给 BT 核上电（HCI 5.1 正常）。但 BT 核没有出厂地址（nvdata 里的 `BT_Addr` 主线读不到），控制器处于 unconfigured 状态，BlueZ 还看不到它——这是蓝牙下一步要解决的问题。
-
-> 🐌 因为没有 cpufreq，CPU 频率固定，USB 网络只有 **3.6 MB/s**（USB 2.0 HS 理论 60 MB/s）。
-> 详见 [踩坑记录](docs/TROUBLESHOOTING.md#-性能类)。
+触摸固件按 DTS 面板节点**自动选择**；选错面板会表现为显示/触摸异常。
+不确定时两个都刷一次试。
 
 ---
 
-## 文档
+## 🎛️ 硬件支持
+
+| 子系统 | 状态 | 说明 |
+|:---|:---:|:---|
+| 主控 MT6833 / 天玑 810（8 核） | ✅ | 单 MC 域，`lscpu` 显示 8 物理核 |
+| 存储 128 GB eMMC → 106 GiB | ✅ | 首次开机自动 resize |
+| 显示 `mediatekdrmfb` 帧缓冲 | ✅ | 含 90 Hz 面板时序 |
+| 触摸 Novatek NT36672C | ✅ | 固件内嵌，suspend/resume 已修复 |
+| Wi-Fi（MT6631 / gen4m） | ✅ | WMT 拉起 CONNSYS，NetworkManager 管理；`regdom=CN` |
+| 蓝牙 | 🟡 | BT 核可上电、HCI 5.1，但无出厂地址（BlueZ 不可用） |
+| USB CDC-NCM | ✅ | 高速模式实测 ~5.2 MB/s |
+| 音频 / 麦克风 | ✅ | MT6833 AFE + MT6359 sound card |
+| 振动马达 | ✅ | AW8697 haptic |
+| 充电 / 电量计 | ✅ | MT6360 charger + MT6359 fuel gauge + Type-C/PD |
+| 传感器 | ✅ | ALS / 距离 / 加速度 / 陀螺仪 / 磁力计 |
+| CPU DVFS | ✅ | 小核 950 MHz–2.0 GHz；大核 725 MHz–**2.4 GHz**（短时） |
+| GPU DVFS | ✅ | Panfrost Mali-G57 MC2，390–**1068 MHz** |
+| 温控 | ✅ | 13 路 LVTS + passive cooling，critical 115 °C |
+| Snap / squashfs | ✅ | XZ / ZSTD / LZ4 / LZO 全开 |
+| 虚拟化 / TUN / VHOST | ✅ | `kvm`、`vhost-net`、`tun` |
+| 基带 / 通话 | ❌ | 未移植 |
+| 相机 | ❌ | 未移植 |
+
+---
+
+## ⚡ 性能数据
+
+真机实测（6 GiB 版本，室温，Thermal 默认策略）：
+
+| 项目 | 数据 |
+|:---|:---|
+| 🧠 CPU 大核 | 短时 **2400 MHz**；8 核满载受 85 °C 温控回落 ~1950–2000 MHz |
+| 🧮 SHA256 单线程 | 2.0 GHz **1229 MB/s** → 2.4 GHz **1476 MB/s**（+20%） |
+| 🎮 GPU（OpenGL ES） | 880 MHz **21.5 fps** → 950 **23.2** → 1000 **24.4** → 1068 **26.0 fps**（+21%） |
+| 💾 内存写 | ~1.93 GB/s（4.8 GB 写入） |
+| 💽 UFS 顺序写 | ~257 MB/s |
+| 🌡️ 8 核 5 分钟压力 | 稳定，温度平台 ~85 °C |
+| 🔌 USB 网络 | ~5.2 MB/s |
+
+---
+
+## 🛠️ 自行构建
+
+### 依赖
+
+Ubuntu 24.04 主机（或 CI runner），需要：
+
+```bash
+sudo apt-get install -y build-essential gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+  ccache bc bison flex libssl-dev libelf-dev libncurses-dev cpio gzip xz-utils zstd \
+  p7zip-full python3 device-tree-compiler patch debootstrap e2fsprogs \
+  qemu-user-static android-sdk-libsparse-utils
+```
+
+### 一句话构建
+
+```bash
+# 完整镜像（以 Ubuntu 26.04 最小版、6 GiB 为例）
+DISTRO=ubuntu EDITION=minimal RAM_GIB=6 ./build.sh
+
+# 只构建内核 + boot.img（快速迭代内核/DTB）
+KERNEL_ONLY=1 INITRAMFS_ROOTFS=$PWD/rootfs-alpine RAM_GIB=6 ./build.sh
+```
+
+产物在 `out/`：
+
+```text
+out/boot.img           # boot_a / boot_b
+out/userdata.simg      # rootfs 镜像
+```
+
+常用环境变量：
+
+| 变量 | 默认 | 作用 |
+|:---|:---|:---|
+| `DISTRO` | `debian` | `arch` / `debian` / `ubuntu` / `fedora` |
+| `EDITION` | `minimal` | `minimal` / `xfce` / `desktop` |
+| `RAM_GIB` | `6` | `6` 或 `8`，决定 DTB 内存节点 |
+| `PANEL` | `k16a_36_02_0a_vdo,lcm` | 面板型号 |
+| `KERNEL_ONLY` | `0` | `1` = 只构建内核 |
+| `BOOT_IMG` | — | 复用已有 boot.img，跳过内核编译 |
+
+> 🧬 内核固定到 [`Evergo-Mainline/linux_evergo`](https://github.com/Evergo-Mainline/linux_evergo)
+> 的验证过的提交（见 [build.sh](build.sh) 里的 `KERNEL_COMMIT`），保证可复现。
+
+### CI
+
+GitHub Actions 全自动：
+
+1. `plan` —— 计算镜像矩阵；
+2. `boot / kernel + DTBs` —— **只编译一次内核**，再生成 6 GiB / 8 GiB 两份 DTB 对应的 boot 镜像；
+3. `rootfs` —— 按发行版/edition 并行 debootstrap；
+4. `release` —— 发布 `build-<N>` Release 与 artifacts。
+
+---
+
+## 📖 文档
 
 | 文档 | 内容 |
 |:---|:---|
-| 📖 **[刷机与使用教程](docs/TUTORIAL.md)** | 下载、刷机、联网、首次登录、包管理、模式切换 |
-| 🖥️ **[桌面版镜像](docs/BUILDING.md)** | CI 可选 `edition=desktop`：完整 `ubuntu-desktop`（GNOME 全套应用 + 中文，首次开机走 Initial Setup，Snap 可用） |
-| 🔌 **[硬件支持清单](docs/HARDWARE.md)** | 各硬件/虚拟化/PD/Snap 的支持状态与验证结果 |
-| 🛠️ **[构建指南](docs/BUILDING.md)** | 本地构建、CI、多发行版脚本、内核配置 |
-| 🩺 **[抓 panic 日志](docs/PANIC.md)** | 无串口时从 expdb 取回崩溃 trace |
-| 🕳️ **[踩坑记录](docs/TROUBLESHOOTING.md)** | 按症状查：启动失败、不扩容、连不上、构建报错 |
+| 📖 [刷机与使用教程](docs/TUTORIAL.md) | 下载、刷机、联网、首次登录、包管理、模式切换 |
+| 🛠️ [构建指南](docs/BUILDING.md) | 本地构建、CI、多发行版脚本、内核配置 |
+| 🧩 [功能与内核模块](docs/MODULES.md) | 各功能对应内核配置/补丁 |
+| 🔌 [硬件支持清单](docs/HARDWARE.md) | 硬件/虚拟化/PD/Snap 的验证状态 |
+| 🧠 [内核提交记录](docs/KERNEL.md) | 每个内核功能的提交与实测结果 |
+| 🩺 [抓 panic 日志](docs/PANIC.md) | 无串口时从 expdb 取回崩溃 trace |
+| 🕳️ [踩坑记录](docs/TROUBLESHOOTING.md) | 按症状查：启动失败、不扩容、连不上、构建报错 |
+| 📜 [文档索引](docs/README.md) | 全部文档导航 |
+| 🤝 [参与贡献](CONTRIBUTING.md) | 提交规范、本地检查、测试清单 |
 
 ---
 
-## 常用命令
+## 🧰 常用命令
 
 ```bash
-evergo-mode status     # 当前 USB 网络模式
-evergo-mode router     # DHCP 客户端（插路由器，默认）
-evergo-mode pc         # DHCP 服务端（直连电脑）
-evergo-wifi scan       # 扫描周围 Wi-Fi
-evergo-wifi connect "SSID" "密码"   # 连接 Wi-Fi 并获取地址
-evergo-wifi status     # Wi-Fi 链路 / 地址 / 关联状态
+evergo-mode status     # 当前 USB 网络模式（pc / router）
+evergo-mode router     # DHCP 客户端，插路由器用（默认）
+evergo-mode pc         # DHCP 服务端，直连电脑用
+evergo-wifi scan       # 扫描 Wi-Fi
+evergo-wifi connect "SSID" "密码"
+evergo-wifi status     # 链路 / 地址 / 关联状态
 evergo-wifi down       # 断开并关闭 Wi-Fi
 evergo-info            # 一屏系统概览
 ```
@@ -182,31 +254,33 @@ evergo-info            # 一屏系统概览
 
 ## ⚠️ 警告
 
-> 🗑️ **会清空 Android 数据**。刷入会破坏 userdata 分区（FBE 加密，主线 Linux 本来读不了）。
->
-> 想回 Android：`fastboot --set-active=a`，但 Android 会要求重新格式化数据分区。
+> 🗑️ **会清空 Android 数据**：刷入会破坏 userdata（FBE 加密，主线 Linux 无法读取）。
+> 回到 Android：`fastboot --set-active=a`，但 Android 会要求重新格式化数据分区。
 
-> 🚫 **非官方支持**。本项目与小米、联发科无关，刷机风险自负。
+> 🚫 **非官方支持**：本项目与小米、联发科无关，刷机风险自负。
+
+> 🔋 **关机充电**：本机 fastboot 下无充电逻辑，长时间测试请保持供电。
 
 ---
 
-## 致谢
+## 🙏 致谢
 
 | 贡献 | 来源 |
 |:---|:---|
-| 🧠 内核移植 | [KevinLmK0702/linux-evergo](https://github.com/KevinLmK0702/linux-evergo) |
+| 🧠 内核移植 | [Evergo-Mainline/linux_evergo](https://github.com/Evergo-Mainline/linux_evergo) · [KevinLmK0702/linux-evergo](https://github.com/KevinLmK0702/linux-evergo) |
 | 🐧 Arch 根文件系统 | [Arch Linux ARM](https://archlinuxarm.org/) |
-| 💡 分区扩容思路 | [GengWei1997/linux-xiaomi-raphael-uboot](https://github.com/GengWei1997/linux-xiaomi-raphael-uboot)、[postmarketOS](https://postmarketos.org/) |
+| 💡 分区扩容思路 | [GengWei1997/linux-xiaomi-raphael-uboot](https://github.com/GengWei1997/linux-xiaomi-raphael-uboot) · [postmarketOS](https://postmarketos.org/) |
 | 🔧 MT6833 主线化起点 | Poco M3 Pro 5G（camellia）项目 |
-
-<div align="center">
-
-**GPL-2.0** · ⭐ 如果这个项目帮到你，点个 Star
-
-</div>
+| 🧪 测试与反馈 | 所有在真机上刷过这个系统的朋友 |
 
 ---
 
-## License
+## 📜 License
 
 本仓库以 **GPL-3.0-or-later** 发布，完整条款见 [LICENSE](LICENSE)。
+
+<div align="center">
+
+⭐ 如果这个项目帮到你，点个 Star 支持一下
+
+</div>
