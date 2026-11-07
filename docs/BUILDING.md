@@ -227,7 +227,7 @@ scripts/distro-common.sh    debian/ubuntu/fedora 的公共配置
 | 变量 | 默认 | 说明 |
 |:---|:---|:---|
 | `DISTRO` | `arch` | `arch` / `debian` / `ubuntu` / `fedora` |
-| `RAM_GIB` | `6` | 内存版本（4 / 6 / 8） |
+| `RAM_GIB` | `6` | 仅用于产物命名；内核已从 bootloader 读 DRAM，一份 boot.img 适配 4/6/8 GiB |
 | `PANEL` | `k16a_36_02_0a_vdo,lcm` | 屏幕型号 |
 | `ROOTFS_MB` | `6144` | 根文件系统初始大小 |
 | `KERNEL_SRC` | *(空)* | 复用已有内核源码树（旧版 build.sh 留下的 pre-WiFi 树会被检测出来并报错） |
@@ -243,7 +243,7 @@ scripts/distro-common.sh    debian/ubuntu/fedora 的公共配置
 
 ```
 ① 取内核源码
-   KERNEL_COMMIT=7d015704e5d894f3a0832b64b792af9226c7677d  ← 锁定版本（Evergo-Mainline/linux_evergo master tip）
+   KERNEL_COMMIT=865d67f3911c0a52b7c02aa567699b4e2b6ffc13  ← 锁定版本（Evergo-Mainline/linux_evergo master tip）
    git fetch --depth 1 origin $KERNEL_COMMIT && git checkout FETCH_HEAD
    然后套用 config/patches/*.patch（目前一个：SOC 上跳过重复注册的 HIF-SDIO 驱动，
    否则 WMT 初始化在 /dev/stpwmt 出现之前就 -EBUSY 退出）

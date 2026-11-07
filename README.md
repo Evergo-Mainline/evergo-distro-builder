@@ -59,8 +59,8 @@
 - `boot-<发行版>-<内存>gib.img` —— 内核 + initramfs
 - `userdata-<发行版>-<内存>gib.img.gz` —— 根文件系统
 
-> 🧠 **内存必须匹配**：6 GiB 机型用 `6gib`，8 GiB 机型用 `8gib`。
-> （4 GiB 机型也使用 `6gib`；8 GiB 机型混用 `6gib` 会少识别 2 GiB 内存。）
+> 🧠 **一份镜像适配全部内存**：内核会从 bootloader 读回真实 DRAM 大小并裁剪，
+> 4 / 6 / 8 GiB 机型共用同一份 `boot.img`（Release 里 `6gib`/`8gib` 文件内容相同）。
 
 ### 2️⃣ 刷入
 

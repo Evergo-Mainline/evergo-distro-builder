@@ -3,7 +3,7 @@
 内核仓库：[`Evergo-Mainline/linux_evergo`](https://github.com/Evergo-Mainline/linux_evergo)（mainline 7.3-rc4 基线）
 构建仓库通过 `KERNEL_COMMIT` pin 内核提交，见 [BUILDING](BUILDING.md)。
 
-> 📌 当前 pin：**`7d015704`**（`master` tip，已上机验证）。
+> 📌 当前 pin：**`865d67f3`**（`master` tip，已上机验证）。
 
 ## 分支与提交
 
@@ -99,6 +99,12 @@ CPU/GPU DVFS 打开后若无 cooling，满载温度会从 80 °C 升到 102 °C 
 
 5 分钟 8 核满载：温度平台 ~85 °C，大核回落至 1.95–2.0 GHz，系统持续存活。
 详见 [STRESS](STRESS.md)。
+
+## 内存：DRAM 大小从 bootloader 读取（`865d67f3`）
+
+`setup_arch()` 在换成内嵌 DTB 之前，从 LK 交给内核的树里读回真实 DRAM 大小和全部 `/reserved-memory`，然后裁剪/移除 memblock 中多声明的部分。这样 4/6/8 GiB 机型**共用同一份 boot.img**，不再需要按 RAM 变体编译两套内核。
+
+真机（6 GiB 机型 + 8 GiB 上限镜像）：`evergo: trimming 2048 MiB`、`kept 32 of 43 bootloader reservations`、`MemTotal 5,261,276 kB`，4.3 GiB 分页探测 **0 坏页**。
 
 ## 内存压力 panic：根因与修复（`7c0388f5`）
 

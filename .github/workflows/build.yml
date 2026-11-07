@@ -165,16 +165,19 @@ jobs:
           sudo chroot rootfs-alpine /usr/bin/qemu-aarch64-static /bin/sh -c 'apk add --no-cache e2fsprogs e2fsprogs-extra'
           sudo find rootfs-alpine -maxdepth 3 \( -name e2fsck -o -name resize2fs \) -printf '%p\n'
 
-      - name: build kernel + 6 GiB boot image
+      - name: build kernel + boot image (single image for 4/6/8 GiB)
         run: |
           chmod +x build.sh scripts/*.sh
           sudo -E env "PATH=$PATH" "HOME=$HOME" "CCACHE_DIR=$CCACHE_DIR" \
             "KERNEL_ONLY=1" \
             "INITRAMFS_ROOTFS=$PWD/rootfs-alpine" \
-            "RAM_GIB=6" \
+            "RAM_GIB=8" \
             "PANEL=$PANEL" ./build.sh
           mkdir -p boot
+          cp out/boot.img boot/boot.img
           cp out/boot.img boot/boot-6gib.img
+          cp out/boot.img boot/boot-8gib.img
+          ls -l boot/
 
       - name: verify snap (squashfs) support in the kernel config
         run: |
@@ -185,17 +188,6 @@ jobs:
             grep -q "^CONFIG_$opt=y" "$cfg" || { echo "missing CONFIG_$opt in $cfg"; exit 1; }
             echo "CONFIG_$opt=y"
           done
-
-      - name: "build 8 GiB boot image (incremental: new DTB only)"
-        run: |
-          chmod +x build.sh scripts/*.sh
-          sudo -E env "PATH=$PATH" "HOME=$HOME" "CCACHE_DIR=$CCACHE_DIR" \
-            "KERNEL_ONLY=1" \
-            "INITRAMFS_ROOTFS=$PWD/rootfs-alpine" \
-            "RAM_GIB=8" \
-            "PANEL=$PANEL" ./build.sh
-          cp out/boot.img boot/boot-8gib.img
-          ls -l boot/
 
       - name: ccache stats
         if: always()

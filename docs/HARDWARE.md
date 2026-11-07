@@ -6,7 +6,7 @@
 
 | 子系统 | 状态 | 备注 |
 |:---|:---:|:---|
-| 主控 / 存储 | ✅ | 128 GB eMMC，首次启动自动扩到 ~106 GiB |
+| 主控 / 存储 | ✅ | 128 GB eMMC，首次启动自动扩到 ~106 GiB；DRAM 大小从 LK 读回，一份 boot.img 适配 4/6/8 GiB |
 | 显示 | ✅ | mediatek-drm + 90 Hz 面板；息屏/唤醒/resume 均已修 |
 | 触摸 | ✅ | Novatek NT36672C（SPI，固件内嵌并按面板自动选择）；休眠唤醒后自动复位 |
 | GPU | ✅ | Panfrost (Mali-G57 MC2)，DVFS **390–1068 MHz**；OPP 电压 781.25 / 800 / 850 mV，见 [KERNEL](KERNEL.md) |

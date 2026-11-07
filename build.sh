@@ -33,7 +33,7 @@ Usage: ./build.sh [--help]
 Environment:
   DISTRO        arch | debian | ubuntu | fedora        (default: arch)
   EDITION       minimal | xfce | desktop              (default: minimal)
-  RAM_GIB       6 | 8                                 (default: 6)
+  RAM_GIB       6 | 8  (label only; one image boots all variants)
   PANEL         k16a_36_02_0a_vdo,lcm (Tianma)
                 k16a_42_02_0b_vdo,lcm (CSOT)          (default: Tianma)
   ROOTFS_MB     rootfs size in MiB                    (default: 6144, desktop 12288)
@@ -58,9 +58,9 @@ KERNEL_BRANCH="${KERNEL_BRANCH:-master}"
 # Pinned commit: CPU 2.4 GHz + GPU 950/1000/1068 MHz + MT6360 Type-C/PD + keymap
 # fix + thermal trips + single cpu-map, i.e. the current validated master tip.
 # Pinning by SHA keeps builds reproducible.
-KERNEL_COMMIT="${KERNEL_COMMIT:-7d015704e5d894f3a0832b64b792af9226c7677d}"
+KERNEL_COMMIT="${KERNEL_COMMIT:-865d67f3911c0a52b7c02aa567699b4e2b6ffc13}"
 KERNEL_SRC="${KERNEL_SRC:-}"             # reuse an existing checkout if set
-RAM_GIB="${RAM_GIB:-6}"                  # 4/6/8 GiB units exist
+RAM_GIB="${RAM_GIB:-6}"                  # label only: one image serves 4/6/8 GiB now
 PANEL="${PANEL:-k16a_36_02_0a_vdo,lcm}"  # Tianma; CSOT is k16a_42_02_0b_vdo,lcm
 EDITION="${EDITION:-minimal}"             # minimal | xfce | desktop (ubuntu only)
 # a desktop rootfs needs much more room than the minimal one
@@ -230,14 +230,10 @@ import re, sys
 dts, gib, panel, edition = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
 s = open(dts).read()
 
-# memory: the author's tree hardcodes 8 GiB for their own unit
-cells = "0 0x40000000 0x1 0x80000000" if gib == 6 else "0 0x40000000 2 0x00000000"
-# use subn and check the count: when the value is already correct the substitution
-# is a no-op, and comparing strings would wrongly report "node not found"
-s, n = re.subn(r'(memory:\s*memory@40000000\s*\{[^}]*?reg\s*=\s*<)[^>]*(>;)',
-               r'\g<1>' + cells + r'\2', s, count=1, flags=re.S)
-if n != 1:
-    raise SystemExit("memory node not found in DTS")
+# memory: the DTS memory node is a ceiling (8 GiB) now.  setup_arch() reads
+# the DRAM size LK actually trained out of the bootloader tree and trims
+# memblock down to it, so the same image boots on the 4/6/8 GiB units and the
+# RAM_GIB variable no longer changes the DTB.
 
 # panel variant
 s = re.sub(r'compatible = "k16a_[0-9a_]+[a-z]*_vdo,lcm";', f'compatible = "{panel}";', s, count=1)
