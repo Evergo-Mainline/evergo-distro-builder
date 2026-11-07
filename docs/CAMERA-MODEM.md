@@ -4,6 +4,8 @@
 
 ## 摄像头
 
+> 📐 硬件拓扑、GPIO/供电表和分阶段计划见 [CAMERA-BRINGUP](CAMERA-BRINGUP.md)。
+
 ### 硬件
 
 来自 stock ROM `evergo_images_V14.0.4.0.TGBCNXM_13.0` 的 `super.img`（vendor 分区）：
