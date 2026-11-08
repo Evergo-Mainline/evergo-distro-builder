@@ -429,3 +429,40 @@ module 5 对应 CAM_B (0x1a050000) 的一组寄存器，如 000545cc 等
 
 静态 439 项表中的 `w1 = 0xfbccf000 + offset` 仍待确认：可能是 "值表 IOVA/指针"（CQ patch 前的占位），
 也可能是另一种描述符形式。下一步可尝试用同样的注入方法读取 0xfbccf000 附近内容（若它是可映射的 IOVA/VA）。
+
+## 18. 影子寄存器数组抓取尝试（本轮）
+
+尝试用同样方法导出 `ispVirReg` 影子寄存器数组（f88 字段，0x8000 字节）：
+
+```
+shadow_1.bin 14944B（部分读取）
+shadow_3.bin 32768B
+```
+
+分析结果：0x4/0x40/0x48 等寄存器偏移处为 0，非零字 1296 个但不符合 CAM 寄存器镜像 →
+f88 字段所指对象并非 CAM 影子寄存器数组（或对象布局/偏移含义不同）。
+抓取过程中 camerahalserver 崩溃一次，已自动重启并恢复预览正常（新 pid，CAM 中断继续增长）。
+
+同时抓到 `patch_3.bin`（4096B）：前 7 个 dummy `0x18004494` + END，`w1=0xff30d000`（IOVA），
+说明该线程是小尺寸 CAMSV/patch 环。
+
+## 19. Android 侧逆向总结（已达到"足够"程度）
+
+已完整掌握：
+
+1. **描述符编码**：`word0 = (cmd<<16) | (module<<27) | offset`
+   - offset = 寄存器偏移；module = 模块号（3=CAM_A, 5=CAM_B, …）
+   - cmd 来自 `mIspCQModuleInfo` 20B 表（439 项，已导出）
+2. **CQ 寄存器配置**：0x200=0x112、0x210=0x21、0x214 base、0x218 DESC_SIZE=0xDB8(439)
+3. **CQ 环结构**：活跃环为 16 项 frame block（5 条 CAM 写 + END + 10 条 meta 描述，含 IOVA）
+4. **HAL 内部结构**：ISP_DRV_CAM 对象含 ispVirReg/ispCQDesc 子对象；patch 表格式为 (reg编码, 值指针)
+5. **物理限制**：dmabuf PFNMAP 只能用进程内 memcpy 注入导出（已实现工具链）
+6. **三摄像头**：s5kjn1(主) / ov16a1q(前) / imx355(超广)，HAL CQ 线程均已覆盖
+
+### 回到 mainline 需要的步骤
+
+1. 用正确 cmd 位重建 439 项 CQ 描述符（此前 mainline replay 用的是 cmd=0 的模板，这是最可能失败原因）；
+2. 刷 mainline boot + Alpine userdata 验证 CQ 是否执行（出现 CQ_DONE / PASS1_DON）；
+3. 观察帧引擎是否启动，再调整 RAW/IMGO 通路。
+
+> 注意：刷 mainline boot 会破坏当前 Android 用户数据（此前 Android userdata 会被覆盖），需用户确认后再进行。
