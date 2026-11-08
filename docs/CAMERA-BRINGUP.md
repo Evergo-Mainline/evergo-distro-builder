@@ -174,3 +174,21 @@ CSI-2 seninf + MRAW 驱动，见 [CAMERA-SENINF-PLAN](CAMERA-SENINF-PLAN.md) 和
   chip ID，CAM 电源域保持 on。
 
 下一步：SENINF + CAMSV 节点与最小 V4L2 采集驱动。
+
+### M3 进展 3：SENINF 节点 + bring-up 驱动（2026-11-08）
+
+- 内核提交 `9b8da3d2`：
+  - 新增 `drivers/media/platform/mediatek/seninf/`，最小平台驱动映射
+    `0x1a004000`（SENINF_TOP + 各 brick）、使能 SENINF clock、用 debugfs
+    `mtk-seninf/reg` 暴露 crossbar/IRQ/checker 寄存器，便于在不重编内核的情况下
+    做寄存器级调试；
+  - `mt6833.dtsi` 增加 seninf 节点（`CLK_TOP_SENINF_SEL` + CAM 电源域），board 打开；
+- 配置 `CONFIG_VIDEO_MTK_SENINF=y`；
+- 真机验证：
+
+```
+mtk-seninf 1a004000.seninf: seninf ready: mux0=03020100 mux1=07060504
+debugfs: mux_ctrl0=03020100 mux_ctrl1=07060504 mux_ctrl2=0b0a0908 mux_ctrl3=0f0e0d0c
+```
+
+下一步：CSI-2 lane/VC/DT 配置 + CAMSV TG/DMA，把 RAW10 帧抓出来。
