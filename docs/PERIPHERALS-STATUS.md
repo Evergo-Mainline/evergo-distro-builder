@@ -134,3 +134,29 @@ LCD bias        = i2c_lcd_bias @ i2c6 0x11（mediatek,i2c_lcd_bias）
 3. 手电筒：补 flash thermal 降额与双通道；
 4. 亮度：实现 MIUI 亮度映射/校准（persist.vendor.max.brightness、brightmillet），以及 HBM；
 5. 这些都可以在 mainline 上逐项 bring-up，与相机链路互不冲突。
+
+## 7. 校准实现（已提交，2026-11-08）
+
+内核 mainline 分支已加入并通过编译验证（HEAD `e10ba2027`）：
+
+1. `iio: light: tsl2522`：新增 DT `lux-scale-num/den`，IIO light 通道输出校准后的 lux，
+   并暴露 `in_illuminance_scale`；
+2. `backlight: lm36273`：新增 DT `brightness-levels`（256 级，0..180 芯片级）与
+   `default-brightness-level`，以及 panel bias 校准 `vpos`/`vneg`（默认 0x1e=±5.5V）；
+3. `Input: aw8697`：新增 sysfs `amplitude`（0..0xffff）/ `run`（持续时间 ms）/
+   `f0`（校准频率），方便不经过 FF 层直接测振；
+4. DTS：加入 256 级 gamma2.2 亮度校准表、VPOS/VNEG、TSL2522 scale 属性。
+
+验证镜像：`D:\evergo\agent-builds\cal1-boot.img`
+（sha256 `79acd2ab9b7295c5c8f6dffcc2ab4c01e3e5d045545349fac587a38d650fdad3`），
+initramfs 内已带 `/root/camring`、`/root/cqring.bin`、`/root/cal-test.sh`。
+
+### 刷机后测试
+
+```sh
+# 校准自检
+/root/cal-test.sh
+
+# 相机 CQ 回放（带 cmd 位的 439 项环）
+/root/camring /root/cqring.bin
+```
