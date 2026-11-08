@@ -231,3 +231,43 @@ IspDrvImp vtable slot... = 0x1308c (setSCQMode) 等
 - 在预览运行时读取对应 CAM_A CQ 线程对象的 `+0x100` 字段得到 CQ 描述符缓冲区 VA，
   然后用 `/proc/<pid>/mem` 直接 dump 0xDB8 字节，解析真实描述符格式（数据字编码）；
 - 或直接调用 libcamdrv 的 `dumpCQTable`/`dumpToFile_camcq_info`（需在 HAL 进程内或找到触发条件）。
+
+## 13. CQ 描述符缓冲区定位（对象字段 + PFNMAP 限制）
+
+每个 `ISP_DRV_CAM` 对象（0x200 字节）由两个 0x100 子对象组成：
+
+```
++0x000  vptr
++0x088  ≤子对象1> 缓冲区 VA    +0x090 IOVA    名字 @+0x0B0  "ispVirReg[...]" 
++0x108  ≤子对象2> 缓冲区 VA    +0x110 IOVA    名字 @+0x130  "mX:ispCQDesc[module][thread]"
+```
+
+实测（预览中）：
+
+```
+obj m1:ispCQDesc[0][5]  : VA=0x70ecd1f000  IOVA=0x02fec6e000
+obj m1:ispCQDesc[0][4]  : VA=0x70ed020000  IOVA=0x02fea0... 
+obj m1:ispVirReg[0][5]  : VA=0x70ece39000  IOVA=0x02fea04000
+```
+
+- 每个 CQ 线程一个对象，名字里的 `[module][thread]` 对应 CAM 模块与 CQ 线程号；
+- `ispVirReg` 子对象就是 **影子寄存器数组**（0x8000 寄存器镜像，P1CB .reg 的来源）；
+- `ispCQDesc` 子对象对应 **CQ 描述符缓冲区**。
+
+### 限制：VA 不可通过 /proc/<pid>/mem 读取
+
+对上述 VA 使用 `pread(/proc/<pid>/mem)` 返回 **EIO**：
+这些缓冲区是 ION/dma-buf 映射（VM_PFNMAP），用户态进程映射不可被常规内存读取接口访问。
+
+### 可行突破路径
+
+1. **ptrace syscall 注入**：attach 到 `camerahalserver`，劫持线程寄存器直接调用 `openat/write` 系统调用，
+   把 `ispCQDesc` 的 VA 内容写到 `/data/vendor/camera_dump/`，再 pull；
+2. 通过 `camera-mfb`（MFB 位块引擎）做内存到内存复制（CQ IOVA -> 可读缓冲）；
+3. 触发 HAL 自身 dump 路径（`dumpCQReg` / `full_dump.csv`），需要找到对应条件/属性。
+
+> 备注：设备共 3 个摄像头（见 `/proc/driver/camera_info`）：
+> 1. s5kjn1（主摄 4080x3072）
+> 2. ov16a1q（前置 2304x1728）
+> 3. imx355（超广角 3280x2464，HDR）
+> 三个 sensor 的 HAL 配置对象均可在同一份 dump 中获取（m1/m2/m3 组）。
