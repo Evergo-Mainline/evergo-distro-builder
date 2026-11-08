@@ -58,7 +58,7 @@ KERNEL_BRANCH="${KERNEL_BRANCH:-master}"
 # Pinned commit: CPU 2.4 GHz + GPU 950/1000/1068 MHz + MT6360 Type-C/PD + keymap
 # fix + thermal trips + single cpu-map, i.e. the current validated master tip.
 # Pinning by SHA keeps builds reproducible.
-KERNEL_COMMIT="${KERNEL_COMMIT:-095107605e77b44b03b77e814f4e91601813e6a2}"
+KERNEL_COMMIT="${KERNEL_COMMIT:-ccd12ba0033726f31f2d3353e3bee98b4785e86a}"
 KERNEL_SRC="${KERNEL_SRC:-}"             # reuse an existing checkout if set
 RAM_GIB="${RAM_GIB:-6}"                  # label only: one image serves 4/6/8 GiB now
 PANEL="${PANEL:-k16a_36_02_0a_vdo,lcm}"  # Tianma; CSOT is k16a_42_02_0b_vdo,lcm
