@@ -30,7 +30,9 @@
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 按症状查：启动失败/不扩容/连不上/构建报错 | 出问题的人 |
 | [VENDOR-PORT.md](VENDOR-PORT.md) | 从 vendor 内核移植功能的思路与踩坑 | 深入开发者 |
 | [EVERGO-CONTINUE.md](EVERGO-CONTINUE.md) | 后续开发计划与待办 | 想接着做的人 |
-| [CAMERA-BRINGUP.md](CAMERA-BRINGUP.md) | 内置摄像头 bring-up 硬件拓扑与分阶段计划 | 做相机移植的人 |
+| [CAMERA-BRINGUP.md](CAMERA-BRINGUP.md) | 内置摄像头 bring-up 硬件拓扑、进展与分阶段计划 | 做相机移植的人 |
+| [CAMERA-SENINF-PLAN.md](CAMERA-SENINF-PLAN.md) | SENINF/CSI-2 接收端移植方案与寄存器图 | 做相机移植的人 |
+| [CAMERA-ISP-PLAN.md](CAMERA-ISP-PLAN.md) | CAMSYS/MRAW/DIP ISP 与 libcamera 方案 | 做相机移植的人 |
 | [CAMERA-MODEM.md](CAMERA-MODEM.md) | 相机/基带移植调研记录 | 做外设移植的人 |
 
 ---

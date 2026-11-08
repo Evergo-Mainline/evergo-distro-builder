@@ -137,3 +137,14 @@ s5kjn1 6-0020: error -EINVAL: failed to check HW configuration
 
 下一步：修正 CMMCLK0 的 pinmux（可能需要给 mt6833 pinctrl 驱动补 CMMCLK 功能表项，
 或直接用 devmem 验证），并用万用表/示波器确认 WL2866D 的 DVDD/AVDD 实际电压。
+
+### M2 结果：sensor 已能 probe（2026-11-08）
+
+- **MT6360 LDO2 (VTP) 1.8 V**：vendor cam0 的 vcamio 实际来自 MT6360 LDO2，不是 MT6359；
+- S5KJN1 的 7-bit 地址是 **0x10**（vendor 表里的 0x20 是 8-bit 写地址）；
+- 补齐 endpoint（data-lanes=1..4 + link-frequencies=700 MHz）后驱动通过 `check_hwcfg`；
+- 真机结果：`/sys/bus/i2c/drivers/s5kjn1/6-0010` 绑定成功，chip ID 读出 **0x38e1**。
+
+也就是说 **供电 / I2C / reset / MCLK 全链路已经通了**。下一步是 M3：
+CSI-2 seninf + MRAW 驱动，见 [CAMERA-SENINF-PLAN](CAMERA-SENINF-PLAN.md) 和
+[CAMERA-ISP-PLAN](CAMERA-ISP-PLAN.md)。
