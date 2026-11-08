@@ -466,3 +466,23 @@ f88 字段所指对象并非 CAM 影子寄存器数组（或对象布局/偏移�
 3. 观察帧引擎是否启动，再调整 RAW/IMGO 通路。
 
 > 注意：刷 mainline boot 会破坏当前 Android 用户数据（此前 Android userdata 会被覆盖），需用户确认后再进行。
+
+## 20. 重建带 cmd 位的 CQ 环（离线产物）
+
+用已导出的 `mIspCQModuleInfo` 表 + P1CB 寄存器镜像重建了完整 CQ 描述符环：
+
+```
+D:\evergo\android-camera-dump\cq_ring_full_rebuilt.bin   3512B（= 0xDB8，439 项）
+D:\evergo\android-camera-dump\cq_ring_full_rebuilt.txt   427 条写描述符 + END
+D:\evergo\android-camera-dump\cq_ring_cam_a_rebuilt.bin  仅 module=3 (CAM_A) 版本
+```
+
+- 每条 `w0 = (cmd<<16) | (module<<27) | offset`，`w1` 来自 P1CB 寄存器镜像的对应偏移值；
+- 模块分布：module 3 (CAM_A) 377 项、module 9 56 项、module 0 3 项、module 5 2 项、module 7 1 项；
+- 12 项偏移超出 0x8000 或未编程，已跳过；其余 427 项写入 + END + dummy 填充到 439 项。
+
+### 与旧测试的差异
+
+之前 mainline 测试工具 `camcq*.c` 只写 **1 条**描述符（带 cmd 位）+ dummy 填充，且把 END 放在最后一槽；
+重建环是 **427 条完整描述符序列**（含 END 在正确位置）。下一步应在 mainline 上重放完整环（不仅单条），
+并同时加载与 CAM_A 一致的寄存器上下文（CQ_EN/CTL/clock）。
