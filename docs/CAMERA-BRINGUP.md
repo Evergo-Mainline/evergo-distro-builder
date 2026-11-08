@@ -192,3 +192,59 @@ debugfs: mux_ctrl0=03020100 mux_ctrl1=07060504 mux_ctrl2=0b0a0908 mux_ctrl3=0f0e
 ```
 
 下一步：CSI-2 lane/VC/DT 配置 + CAMSV TG/DMA，把 RAW10 帧抓出来。
+
+## 9. CQ（命令队列）逆向结果（第 44–58 轮）
+
+### 9.1 描述符格式（从 libcamdrv_isp.so 反汇编）
+
+- 描述符 8 字节：`word0 = 地址编码 | 命令位`，`word1 = 数据`
+- 地址编码：`(addr & 0xffff) | (((addr >> 16) & 0x1f) << 27)`（CAM_A base id = 3）
+- `word0` bits[24:16] 来自 CQ 模块表项第 4 字段（`mIspCQModuleInfo` 20 字节/项，439 项）
+- END 描述符：`{0x06000000, 0x06000000}`
+- dummy 描述符：`word0 = (0x1a24a000 + (slot<<28)) & 0xF8000000 | 0x4494`
+
+### 9.2 CQ 寄存器（MT6833，来自 golden 抓取）
+
+```
+0x200 CQ_EN           = 0x00000112   (bit1|bit4|bit8)
+0x210 CQ_THR0_CTL     = 0x00000021   (EN + 连续模式)
+0x214 CQ_THR0_BASE    = 0xfa5b4000
+0x218 CQ_THR0_DESC_SIZE = 0x00000db8  (3512 字节 = 439 描述符)
+0x74  CTL_START       CQ_THR0_START = bit0
+0x78  CTL_START_ST
+0x154 RAW_INT6_STATUS (CQ_THR0_DONE_ST = bit0)
+0x150 RAW_INT6_EN
+```
+
+MTK HAL 的 CQ 初始化顺序：CQ_EN/SCQ_EN → SCQ period(0x204) →
+CQ_THR0_CTL=EN|IMMEDIATE → baseaddr/desc_size → CTL_START(bit0) → 轮询 DONE。
+
+### 9.3 实测状态
+
+- CAM 软复位（0x7c: 0→1→poll bit1→4→0）后，CQ 启动位能正常清零（ST=0）；
+- 设置 DESC_SIZE=0xdb8、完整 439 槽缓冲区（dummy+真实+END）、
+  CQ_EN=0x112、CQ_THR0_CTL=0x21 后：
+  - `CTL_START_ST = 0`（启动完成）
+  - `RAW_INT6_STATUS = 0`（无 CQ_DONE）
+  - 目标寄存器（0x54/0x1f64）未被写入
+- 物理地址 base（camraw 去掉 iommus 后 0xf0c00000）与 IOVA 行为一致 → 与 IOMMU 无关
+- 已尝试 EN/CTL 模式矩阵、cmd 位矩阵、END 位置、TG 运行后触发，均未执行
+
+### 9.4 结论
+
+CQ 引擎"启动即完成但不读描述符"，仍缺少厂商 HAL 的某一步初始化
+（可能是 CAMSYS 层的 CQ 时钟/复位，或 CQ ring 特定位配置）。
+该步骤仅存在于闭源 HAL，公开资料无记录。
+
+## 10. 红外遥控（IR blaster）——已可用
+
+- 硬件：PWM 通道 2，GPIO139 复用 PWM_2，载波 38009 Hz
+- 内核改动：`mediatek,mt6833-pwm` + `pwm-ir-tx` 节点 + `CONFIG_IR_PWM_TX/LIRC`
+- 验证：
+  ```
+  /dev/lirc0 存在（pwm-ir-tx）
+  irsend /dev/lirc0 20DF10EF 38009 50   # rc=0
+  PWMDWIDTH=683, PWMTHRES=341 @26MHz => 38.06 kHz
+  pinctrl pin139 = func1 (PWM_2)
+  ```
+- 注意：LIRC pulse 模式要求写入条目数为**奇数**（否则 EINVAL）
