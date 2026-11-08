@@ -163,3 +163,14 @@ CSI-2 seninf + MRAW 驱动，见 [CAMERA-SENINF-PLAN](CAMERA-SENINF-PLAN.md) 和
   主线没有），所以域目前只上不下。
 
 下一步：seninf + CAMSV DT/驱动（见 [CAMERA-SENINF-PLAN](CAMERA-SENINF-PLAN.md)）。
+
+### M3 进展 2：CSI D-PHY 已接入（2026-11-08）
+
+- 内核提交 `e16da3dd`：`phy-mtk-mipi-csi-0-5` 增加 `mediatek,mt6833-csi-rx`
+  compatible；SoC DTS 描述 `0x11c80000` 的 MIPI CSI ANA（4 lane、D-PHY、
+  CAM 电源域），board DTS 打开；
+- 配置 `CONFIG_PHY_MTK_MIPI_CSI_0_5=y`；
+- 真机验证：`/sys/class/phy/` 出现 `phy-11c80000.phy`，S5KJN1 仍正常绑定并读
+  chip ID，CAM 电源域保持 on。
+
+下一步：SENINF + CAMSV 节点与最小 V4L2 采集驱动。
