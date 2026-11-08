@@ -311,3 +311,46 @@ idx w0        base off    cmd  w1
 
 - 过滤出主摄（s5kjn1 / CAM_A P1）的 CQ 线程对象，导出其缓冲区并逐条解码（区分 CAM_A/CAM_B/CAMSV）；
 - 用抓到的真实描述符序列对照 mainline 的 CQ ring 初始化，确认缺失的 CQ 上下文/时钟/ring 设置。
+
+## 15. 全部 CQ 线程缓冲区导出结果（29 个）
+
+用 `injmemcpy` + `scanobjs` 遍历所有 `ispCQDesc` 对象，成功导出 29 个 CQ 缓冲区（4KB each），HAL 全程存活。
+
+分类：
+
+```
+9 个 "小" 缓冲区: 41 个非零 8 字节项，含 4 个 END(0x06000000)，module base 为 5/3/28/30/31
+20 个 "大" 缓冲区: 439 个非零项，含 1 个 END  -> 正好等于 DESC_SIZE=0xDB8 / 8 = 439 描述符！
+                    其中 8 个 base=3（CAM_A）、8 个 base=5（CAM_B）、4 个 base=5/其他
+```
+
+439 项与 `CQ_THR0_DESC_SIZE=0xDB8` 完全吻合，确认抓到的是真实 CQ 描述符环形缓冲。
+
+### 内容特征（以 CAM_A 439 项表 cqall_19.bin 为例）
+
+```
+idx 000..008: w0=18004494  w1=fbccf000+...   (dummy 填充，与反汇编得到的 dummy 0x18004494 一致)
+idx 012: w0=18000004  (base3 off4  CTL_EN)     w1=fbccf004
+idx 013: w0=18000040  (CTL_SEL)                w1=fbccf040
+idx 014: w0=18000048  (FMT_SEL)                w1=fbccf048
+idx 015: w0=18000054  (CTL_MISC)               w1=fbccf054
+idx 218: w0=18000214  (CQ_THR0_BASE)           w1=fbccf214
+...
+END (0x06000000)
+```
+
+**新发现**：描述符的 word1 不是直接寄存器值，而是 `0xfbccf000 + offset` 形式的**指针/地址**（每项与 word0 的 offset 同步），
+说明该缓冲在抓取时刻是 "**寄存器地址表 / 前编码表**"，还不是最终发给硬件的数据（或 word1 是 staging 地址表项）。
+需要继续确认 HAL 在 frame 提交时如何把该表转换为最终 word1 数据（可能经过 `ISP_CMD_CQ_SW_PATCH` / CQ patch 流程）。
+
+### 原始数据文件
+
+- 全部 29 个缓冲区：`D:\evergo\android-camera-dump\cqall\cqall_*.bin`
+- CAM_A 439 项解码表：`D:\evergo\android-camera-dump\cq_table_cam_a.txt`
+- 单缓冲示例：`D:\evergo\android-camera-dump\cqmem.bin`
+
+### 下一步
+
+1. 继续用 `injmemcpy` 在**帧提交瞬间**（preview 稳定、多次采样）抓取同一 CQ 线程，观察 word1 从 `0xfbccf...` 变为真实寄存器值的时机；
+2. 或直接注入调用 libcamdrv `dumpCQTable` 类函数输出解码结果；
+3. 结合 `ISP_CMD_CQ_SW_PATCH` 语义确认 patch 流程，得到 mainline 需要模拟的初始化步骤。
