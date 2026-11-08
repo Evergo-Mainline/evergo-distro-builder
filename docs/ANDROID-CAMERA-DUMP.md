@@ -354,3 +354,37 @@ END (0x06000000)
 1. 继续用 `injmemcpy` 在**帧提交瞬间**（preview 稳定、多次采样）抓取同一 CQ 线程，观察 word1 从 `0xfbccf...` 变为真实寄存器值的时机；
 2. 或直接注入调用 libcamdrv `dumpCQTable` 类函数输出解码结果；
 3. 结合 `ISP_CMD_CQ_SW_PATCH` 语义确认 patch 流程，得到 mainline 需要模拟的初始化步骤。
+
+## 16. 采样对比：活跃 CQ 环 vs 静态大表
+
+对全部 29 个 CQ 缓冲区各采样 3 次（间隔 ~0.2s）后对比：
+
+- **439 项大表（8 个，全部静态 diff=0）**：`w1 = 0xfbccf000 + offset` 形式的暂存值表；
+- **41 项小表（8 个，每次采样变化 3-4 项）**：**活跃 CQ 环**，其 w1 是真实 IOVA（0xfe.../0xff...）。
+
+活跃环结构（示例 s2_75e6bc0000.bin，可读且稳定）：
+
+```
+每 16 项一个 frame block:
+  0: w0=28004580 (base=5 off=4580)      w1=ff295030   IOVA
+  1: w0=280045ac (base=5 off=45ac)      w1=ff295034
+  2: w0=280345cc (base=5 off=45cc cmd=3) w1=ff295038
+  3: w0=280002bc (base=5 off=02bc)      w1=ff295068
+  4: w0=28004494 (base=5 off=4494)      w1=ff295068   <- dummy 写
+  5: w0=06000000 (END)
+  6: w0=fd7d1000 (base=31)              w1=fb65f140
+  7: w0=00000009                        w1=fd7d1000
+  ...
+ 13: w0=ff295080 (base=31 cmd=729)      w1=00000002
+ 15: w0=e6bc0080 (base=28 cmd=6bc)      w1=00000075
+```
+
+- 每个 block 5 条 CAM 写 + END + 10 条“meta”描述（base 0x31/0x28，含 IOVA 与计数）；
+- 与 mainline 反汇编得到的编码 `(off)|(base<<27)|(cmd<<16)` 一致；
+- **活跃环里的 w1 是真实 IOVA**（ff295030 等），说明这些环是**已 patch 完成、直接给硬件用**的最终描述符表；
+- 大表（439 项）可能是用于其它 camera/CQ 线程的"预生成模板"（暂存地址表），在预览时未被硬件使用。
+
+### 下一步
+
+1. 确定 base id 与 CAM/CAMSV 模块的对应关系（用活跃环中的 IOVA/计数与 live 寄存器比对）；
+2. 用活跃环的完整 16 项 block 结构对照 mainline 的 CQ 环布局，补齐 mainline 缺失的 10 条 meta 描述符（很可能就是 CQ 引擎启动所必需的上下文/中断/TG 配置）。
