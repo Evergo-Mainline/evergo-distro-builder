@@ -148,3 +148,18 @@ s5kjn1 6-0020: error -EINVAL: failed to check HW configuration
 也就是说 **供电 / I2C / reset / MCLK 全链路已经通了**。下一步是 M3：
 CSI-2 seninf + MRAW 驱动，见 [CAMERA-SENINF-PLAN](CAMERA-SENINF-PLAN.md) 和
 [CAMERA-ISP-PLAN](CAMERA-ISP-PLAN.md)。
+
+### M3 进展：CAM MTCMOS 电源域已补（2026-11-08）
+
+- 主线原来只有 CONN + MFG0..3 电源域，CAM/CAM_RAWA/CAM_RAWB 未建模，
+  访问 0x1a000000/0x1a04f000/0x1a06f000 会直接挂死；
+- 内核提交 `1bf31515`：补 3 个 camera 电源域（vendor `clk-mt6833-pg.c` 寄存器
+  0x035c/0x0360/0x0364、status bit 23/24/25、SRAM PDN bit8/ack bit12），
+  并在 DTS 里让 camsys 三个 clock controller 挂到对应 genpd；
+- 真机验证：`pm_genpd_summary` 出现 `cam` / `cam_rawa` / `cam_rawb` 且为 **on**，
+  三个 `1a0*.clock-controller` 不再 deferred probe 超时（之前 -110），
+  GPU/传感器/WiFi/显示等其余系统正常；
+- 还没做：CAM 的 INFRA_TOPAXI_PROTECTEN_MM/_VDNR bus protection（vendor 有，
+  主线没有），所以域目前只上不下。
+
+下一步：seninf + CAMSV DT/驱动（见 [CAMERA-SENINF-PLAN](CAMERA-SENINF-PLAN.md)）。
