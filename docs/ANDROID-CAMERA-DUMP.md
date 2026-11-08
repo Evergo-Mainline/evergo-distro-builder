@@ -271,3 +271,43 @@ obj m1:ispVirReg[0][5]  : VA=0x70ece39000  IOVA=0x02fea04000
 > 2. ov16a1q（前置 2304x1728）
 > 3. imx355（超广角 3280x2464，HDR）
 > 三个 sensor 的 HAL 配置对象均可在同一份 dump 中获取（m1/m2/m3 组）。
+
+## 14. 成功导出 vendor CQ 描述符缓冲区（ptrace 注入 memcpy）
+
+### 方法
+
+PFNMAP(dmabuf) 映射不能被 `/proc/<pid>/mem`、`process_vm_readv`、`PTRACE_PEEKDATA` 读取（均为 EFAULT/EIO）。
+最终方案：**在 camerahalserver 进程内执行一次 memcpy**，把目标缓冲区复制到可读的线程栈，再读栈。
+
+步骤（工具 `injmemcpy`）：
+1. 从 target maps 找到 libc 基址，`memcpy` 偏移 0x88ae0；
+2. ptrace attach，保存寄存器；
+3. 设置 `x0=sp-0x2000`(目标栈地址)，`x1=CQ缓冲区VA`，`x2=0x1000`，`x3=0`，`LR=0`（memcpy 返回后取指异常触发 SIGSEGV stop），`PC=memcpy`；
+4. `PTRACE_CONT` 等 stop，恢复寄存器、detach；
+5. 用 `/proc/<pid>/mem` 读取 `sp-0x2000` 的 0x1000 字节。
+
+实测：HAL 进程存活，成功导出 4096 字节 CQ 描述符缓冲区。
+
+### 抓到的 CQ 缓冲区内容（示例，CAM 模块）
+
+```
+idx w0        base off    cmd  w1
+000 280044a0  05   44a0   000  fef19030
+001 280044cc  05   44cc   000  fef19034
+002 280244f0  07?  44f0   002  fef19038
+003 2800028c  05   028c   000  fef19068
+004 28004494  05   4494   000  fef19068
+005 06000000  00   0000   600  00000000      <- CQ END
+006 fb783000  1f   3000   378  fb65e040
+007 000000ee  00   00ee   000  fb783000
+```
+
+- **END 标记 `0x06000000` 位置确认**；
+- 描述符确实是 8 字节 (word0=编码地址+命令位, word1=数据)，与反汇编得出的编码一致；
+- vendor 在此 CQ 线程里使用的 module id 字段为 **5**，data 为 IOVA（0xfef19xxx / 0xfb78xxxx），
+  说明该线程向 CAM 侧写入 DMA 基地址/配置；不同 CQ 线程对应不同 module（m1/m2）。
+
+### 待办
+
+- 过滤出主摄（s5kjn1 / CAM_A P1）的 CQ 线程对象，导出其缓冲区并逐条解码（区分 CAM_A/CAM_B/CAMSV）；
+- 用抓到的真实描述符序列对照 mainline 的 CQ ring 初始化，确认缺失的 CQ 上下文/时钟/ring 设置。
