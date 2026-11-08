@@ -514,3 +514,46 @@ D:\evergo\android-camera-dump\cq_ring_cam_a_rebuilt.bin  仅 module=3 (CAM_A) �
 2. 把 `camring` 和 `cqring.bin` 推到设备 `/root/`；
 3. 运行 `./camring /root/cqring.bin`，观察是否出现 `INT6`/`PASS1_DON`；
 4. 若 CQ 执行，再继续 RAW/IMGO 配置。
+
+## 22. 内核 trace 能力与 HAL 寄存器访问方式（决定 mainline 复现方式）
+
+### tracefs/kprobe 可用
+
+stock kernel 虽有 `CONFIG_DEBUG_FS=n`，但 **tracefs 挂载在 `/sys/kernel/tracing`**，且 `kprobe_events` 可用：
+
+- 成功创建 kprobe：`p:camw mt_reg_sync_writel_print a=%x0 v=%x1`
+- 成功创建带内存解引用的 kprobe：`p:ispioctl ISP_ioctl$d11c... cmd=%x1 a=%x2 u1=+0(%x2):u32 ...`
+- 抓取 camera 启动期间 **8234 次 ISP_ioctl 调用**，命令分布：
+
+```
+cmd=0xc0086b09 (nr9,size8)  2240  GET_CUR_SOF 类轮询
+cmd=0x40686b1b (nr27,size104) 1900 ION_IMPORT
+cmd=0x40686b1c (nr28,size104) 1720 ION_FREE
+cmd=0xc0086b17 (nr23,size8) 1376
+cmd=0x40386b03 (nr3,size56)  699  WAIT_IRQ
+...
+```
+
+### 关键：HAL 直接 mmap 相机寄存器并写 MMIO
+
+`camerahalserver` 的 maps 中存在：
+
+```
+7644071000-7644079000 rw-s 1a030000 /dev/camera-isp   ← CAM_A
+76404ce000-76404d6000 rw-s 1a038000 /dev/camera-isp   ← CAM_A_INNER
+76421a1000-76421a9000 rw-s 1a050000 /dev/camera-isp   ← CAM_B
+76404c6000-76404ce000 rw-s 1a058000 /dev/camera-isp
+764426b000-764426c000 rw-s 1a092000 /dev/camera-isp   ← CAMSV3
+... 还有 CAM_C(1a070000/1a078000) 与 CAMSV4..8 窗口
+```
+
+**结论**：vendor HAL 不使用 `ISP_CMD_WRITE_REG` ioctl，而是把 `/dev/camera-isp` 的
+CAM/CAMSV 寄存器窗口 mmap 到用户态后**直接写 MMIO**。这解释了 ioctl trace 里没有
+READ_REG/WRITE_REG（mainline 驱动目前用直接 MMIO 写寄存器，结构上与 vendor 一致）。
+
+### 对 mainline 的意义
+
+- 我们与 vendor 的寄存器写入方式相同，问题不在"写不进去"；
+- 差异集中在 **CQ 初始化时序 + CQ 描述符环内容**；
+- 下一步在 mainline 上：先用 `camring` 重放已重建的环（cmd 位已修正、DESC_SIZE=0xDB8），
+  再对比 vendor 的 CQ 寄存器最终态定位差集。
