@@ -193,3 +193,41 @@ port 512(16-0) L16_CAM_IMGO_R1_A : IOVA 0x2e5bb2000 -> PA 0xf6940000
 2. 让 HAL 自身把 CQ 描述符写盘：`libcamdrv_isp.so` 的 `dumpCQTable` / `dumpToFile_camcq_info`
    需要在 HAL 进程内调用（可通过注入/property 触发，待定位触发条件）；
 3. 继续静态反汇编 `CQ_SetContent` 的 vtable 分派实现（APS2 重定位解析），直接从二进制推导数据字格式。
+
+## 12. 运行时 vtable / CQ 对象结构（新突破）
+
+### 12.1 绕过 APS2 重定位
+
+`libcamdrv_isp.so` 的 `.rela.dyn` 是 Android 打包重定位（SHT_ANDROID_RELA），静态解析困难。
+改为**从运行中的 `camerahalserver` 进程内存直接读取已重定位的 vtable**：
+
+- 映射：`libcamdrv_isp.so` base=0x704ae0c000；
+- vtable 文件偏移 0x2c2d8 → 运行时 0x704ae382d8；
+- 用 `/proc/<pid>/mem` 读出每个槽位，反算回文件偏移后反汇编。
+
+已解析：
+```
+ISP_DRV_CAM vtable slot26 (vptr+192) = 0x27be4  -> ISP_DRV_CAM::writeRegs(ISP_DRV_REG_IO_STRUCT*, u32, int)
+IspDrvImp vtable slot... = 0x1308c (setSCQMode) 等
+```
+
+### 12.2 ISP_DRV_CAM 对象结构（来自 HAL 进程内存）
+
+找到 25 个 ISP_DRV_CAM 实例（CAM_A/B/C 的每个 CQ 线程一个），每个对象 0x200 字节：
+
+```
++0x000  vptr = ISP_DRV_CAM vtable+0x10
++0x130  "m1:ispCQDesc[module][thread]" / "m2:ispCQDesc[module][thread]"  (名字)
++0x0f0/+0x100  指向 CQ 描述符缓冲区 VA / IOVA（随线程状态变化）
++0x50   影子寄存器数组指针（writeRegs 写入或读取的 u32 数组，按寄存器偏移索引）
+```
+
+- `ISP_DRV_CAM::writeRegs` 的实际行为：把值写入 **影子寄存器数组** `[obj+0x50]`（偏移索引、0xfefefefe 表示未写），
+  这正好解释了 P1CB `.reg` 文件的格式（0x8000 寄存器镜像 + 未写填充）；
+- CQ 描述符缓冲区以 **(VA, IOVA)** 对的形式记录在每个 CQ 线程对象中（IOVA 形如 0x02fbb…、0x2fbb…）。
+
+### 12.3 下一步
+
+- 在预览运行时读取对应 CAM_A CQ 线程对象的 `+0x100` 字段得到 CQ 描述符缓冲区 VA，
+  然后用 `/proc/<pid>/mem` 直接 dump 0xDB8 字节，解析真实描述符格式（数据字编码）；
+- 或直接调用 libcamdrv 的 `dumpCQTable`/`dumpToFile_camcq_info`（需在 HAL 进程内或找到触发条件）。
