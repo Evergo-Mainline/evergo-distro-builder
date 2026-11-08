@@ -145,3 +145,51 @@ phase2/    首次寄存器 dump、kcore 检查
 final/     live_regs.txt、*.reg、m4u_buffer.txt、camera_info.txt、dmesg/logcat
 ```
 所有原始文件保存在 `D:\evergo\android-camera-dump\` 与工作区 `android-camera-dump\`。
+## 11. 追加调查（CQ 缓冲区可达性）
+
+### 11.1 vendor ISP ioctl 清单（camera_isp.h, mt6853）
+
+```
+ISP_CMD_READ_REG / WRITE_REG       寄存器读写（按 module）
+ISP_CMD_ION_GET_PA / MAP_PA / UNMAP_PA   ION fd -> 物理地址
+ISP_CMD_NOTE_CQTHR0_BASE            HAL 通知内核 CQ base（内核存在 g_cqBaseAddr）
+ISP_CMD_CQ_SW_PATCH                 模拟 CQ 更新（原子行为）
+ISP_CMD_DUMP_BUFFER / GET_DUMP_INFO dump 接口（DUMP_BUFFER 在本内核无实现）
+ISP_CMD_LARB_MMU_CTL                larb MMU 开关
+ISP_CMD_DEBUG_FLAG                  日志等级
+```
+
+- `ISP_CMD_DUMP_BUFFER` 在 `camera_isp.c` 中**没有实现 case**，无法据此读 CQ 内容；
+- `/proc/driver/isp_reg`、`camio_reg` 权限 0000；
+- 内核无 `CONFIG_DEBUG_FS`、`CONFIG_PROC_KCORE`，无 `/dev/mem`。
+
+### 11.2 M4U IOVA→PA 映射（`/proc/m4u_dbg/buffer`）
+
+相机相关端口（camerahalserver）示例：
+
+```
+port 512(16-0) L16_CAM_IMGO_R1_A : IOVA 0x2e5966000 -> PA 0x4d1b0000
+port 512(16-0) L16_CAM_IMGO_R1_A : IOVA 0x2e5bb2000 -> PA 0xf6940000
+...
+```
+共 245 行 CAM 相关映射。CQ 缓冲（0xf8662000 一类）同样走 M4U。
+
+### 11.3 进程内存扫描（尝试直接找 CQ 描述符）
+
+- 工具：静态 `memscan`（/proc/<pid>/mem 扫描，root + SELinux permissive）
+- 扫描 `camerahalserver` 全部可读映射（跳过 >128MB 的映射）
+- 结果：
+  - 按“编码地址”模式（0x18000054 / 0x08000054 / 0x18000004 …）命中大量库数据/堆数据，无真实 CQ 描述符序列；
+  - 按“已知寄存器值”模式（0x06072d90 / 0x00360074 / 0x3a3ffd88 …）找到的是
+    **HAL 的寄存器配置数组**（连续寄存器值），并非 (地址,数据) 描述符对；
+  - 与 live CAM_A 寄存器映射交叉匹配，描述符匹配数为 0。
+- 结论：CQ 描述符缓冲区很可能通过 **非缓存 ION 映射**写入（用户态 VA 不在常规可读映射中），
+  或由第三方进程/内核侧持有，无法从 userspace 进程内存直接获取。
+
+### 11.4 下一步可行方案
+
+1. 通过 `ISP_CMD_ION_GET_PA`（或 `/proc/m4u_dbg/buffer`）定位 CQ buffer 物理地址后，
+   寻找能读该 PA 的内核接口（当前无 /dev/mem，需要额外内核侧手段）；
+2. 让 HAL 自身把 CQ 描述符写盘：`libcamdrv_isp.so` 的 `dumpCQTable` / `dumpToFile_camcq_info`
+   需要在 HAL 进程内调用（可通过注入/property 触发，待定位触发条件）；
+3. 继续静态反汇编 `CQ_SetContent` 的 vtable 分派实现（APS2 重定位解析），直接从二进制推导数据字格式。
