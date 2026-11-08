@@ -486,3 +486,31 @@ D:\evergo\android-camera-dump\cq_ring_cam_a_rebuilt.bin  仅 module=3 (CAM_A) �
 之前 mainline 测试工具 `camcq*.c` 只写 **1 条**描述符（带 cmd 位）+ dummy 填充，且把 END 放在最后一槽；
 重建环是 **427 条完整描述符序列**（含 END 在正确位置）。下一步应在 mainline 上重放完整环（不仅单条），
 并同时加载与 CAM_A 一致的寄存器上下文（CQ_EN/CTL/clock）。
+
+## 21. mainline CQ 回放工具（已构建，待刷机验证）
+
+新增 `camring`（静态 aarch64，源码 `camring.c`）：
+
+```
+用法: camring [ringfile] [--zero-cmd] [--single]
+```
+
+流程：
+1. 从 `/sys/kernel/debug/camraw/size` 读第二行获取 CQ 缓冲 IOVA；
+2. 把 439 项 CQ 环（`cqring.bin`，3512 字节）写入 `/sys/kernel/debug/camraw/frame`；
+3. 通过 `/dev/mem` 映射 CAM_A，软复位后设置：
+   `0x200=0x112`、`0x204=0xffffffff`、`0x210=0x21`、`0x214=IOVA`、`0x218=0xDB8`；
+4. 触发 `0x74`，等待 200ms，读取 `INT6/INT7/ST/CQ_EN/THR0/SIZE` 状态。
+
+对比模式：
+- `--zero-cmd`：清零 cmd 位（复现旧测试）；
+- `--single`：只保留第一条描述符（复现旧测试）。
+
+产物位置：`D:\evergo\tools\camring`、`camring.c`、`cqring.bin`。
+
+### 下一步（需刷 mainline）
+
+1. 刷 cam 系列 boot + Alpine userdata；
+2. 把 `camring` 和 `cqring.bin` 推到设备 `/root/`；
+3. 运行 `./camring /root/cqring.bin`，观察是否出现 `INT6`/`PASS1_DON`；
+4. 若 CQ 执行，再继续 RAW/IMGO 配置。
