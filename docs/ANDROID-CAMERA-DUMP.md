@@ -388,3 +388,44 @@ END (0x06000000)
 
 1. 确定 base id 与 CAM/CAMSV 模块的对应关系（用活跃环中的 IOVA/计数与 live 寄存器比对）；
 2. 用活跃环的完整 16 项 block 结构对照 mainline 的 CQ 环布局，补齐 mainline 缺失的 10 条 meta 描述符（很可能就是 CQ 引擎启动所必需的上下文/中断/TG 配置）。
+
+## 17. mIspCQModuleInfo 表解析（描述符命令位来源）
+
+`libcamdrv_isp.so` 符号表：
+
+```
+mIspCQModuleInfo              VA 0x2dbb0  size 8780 = 439*20
+mIspCQModuleInfo_SpecialCQ    VA 0x2fdfc  size  500 =  25*20
+mIspCQModuleInfo_STT_FBCInfo  VA 0x2fff0  size  160 =   8*20
+```
+
+20 字节结构（经 getCQModuleInfo 反汇编确认返回 [+8] 和 [+0xc]）：
+
+```
++0: u32 index
++4: u32 (module<<16)|offset   ← 目标寄存器地址（相对 0x1a000000 相机 aperture）
++8: u32 offset
++12: u32 cmd                  ← 描述符命令位
++16: u32 (1)
+```
+
+示例（对应 CAM_A）：
+
+```
+idx 12: CTL_EN  module_off=00030004 off=0004 cmd=6
+idx 13: CTL_SEL module_off=00030040 off=0040 cmd=2
+idx 14: FMT_SEL module_off=00030048 off=0048 cmd=3
+idx 15: CTL_MISC module_off=00030054 off=0054 cmd=1
+...
+module 5 对应 CAM_B (0x1a050000) 的一组寄存器，如 000545cc 等
+```
+
+**描述符 word0 编码**：`(cmd << 16) | (module << 27) | offset`（module 为 5-bit）。
+这与活跃 CQ 环里观察到的 `0x280345cc`（module=5, cmd=3, off=0x45cc）完全一致。
+
+已导出整表：`D:\evergo\android-camera-dump\cq_module_info.txt`（439 条 + SpecialCQ 25 条）。
+
+### 待解释
+
+静态 439 项表中的 `w1 = 0xfbccf000 + offset` 仍待确认：可能是 "值表 IOVA/指针"（CQ patch 前的占位），
+也可能是另一种描述符形式。下一步可尝试用同样的注入方法读取 0xfbccf000 附近内容（若它是可映射的 IOVA/VA）。
