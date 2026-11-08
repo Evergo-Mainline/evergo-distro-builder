@@ -118,3 +118,22 @@
 **仍缺 MCLK**：sensor（S5KJN1 @ 0x20）还是不 ACK。主线 topckgen 的 `camtg_sel` mux
 parent 列表里有 `univpll_192m_d8`（= 24 MHz），就是 vendor 给 sensor 的 CMMCLK 源；
 只差一个消费者去 enable `camtg_sel` 并把 CMMCLK0 的 pinmux 切过去。
+
+### M2 进展（2026-11-08）
+
+- 在 `i2c2`（adapter 6）挂上 `samsung,s5kjn1` 节点：reset-gpios=GPIO54、
+  `clocks=<&topckgen CLK_TOP_CAMTG_SEL>`，assigned parent=`univpll_192m_d8`、rate 24 MHz；
+- 内核把 `CONFIG_MEDIA_SUPPORT/VIDEO_DEV/VIDEO_S5KJN1` 改为 `=y` 后，驱动注册成功：
+
+```
+s5kjn1 6-0020: error -EINVAL: failed to check HW configuration
+```
+
+- `camtg_sel` 已经选到 24 MHz parent（`clk_parent=univpll_192m_d8`、`clk_rate=24000000`），
+  但 probe 失败后 `clk_prepare_count=0`；
+- pinmux 调试显示 **pin 49/54 仍是 UNCLAIMED**，说明 sensor 节点的 pinctrl-0
+  没有真正落到 CMMCLK0/GPIO54 功能上；
+- 总线扫描仍看不到 sensor 0x20（EEPROM 0x50/0x51 已可见），所以 sensor 还没 ACK。
+
+下一步：修正 CMMCLK0 的 pinmux（可能需要给 mt6833 pinctrl 驱动补 CMMCLK 功能表项，
+或直接用 devmem 验证），并用万用表/示波器确认 WL2866D 的 DVDD/AVDD 实际电压。
