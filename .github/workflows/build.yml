@@ -31,7 +31,7 @@ on:
         default: 'all'
         required: true
       ram_gib:
-        description: 'RAM size (6 or 8; "all" builds both)'
+        description: 'ignored (deprecated: one image boots 4/6/8 GiB)'
         type: choice
         options: ['6', '8', 'all']
         default: 'all'
@@ -67,28 +67,21 @@ jobs:
   plan:
     runs-on: ubuntu-24.04
     outputs:
-      boots: ${{ steps.plan.outputs.boots }}
       rootfs: ${{ steps.plan.outputs.rootfs }}
     steps:
       - id: plan
         run: |
           distro="${{ github.event.inputs.distro || 'all' }}"
-          ram="${{ github.event.inputs.ram_gib || 'all' }}"
           edition="${{ github.event.inputs.edition || 'both' }}"
           [ "$distro" = "all" ] && distros="arch debian ubuntu fedora" || distros="$distro"
-          [ "$ram"    = "all" ] && rams="6 8"                              || rams="$ram"
 
-          boots=""
-          for r in $rams; do
-            [ -n "$boots" ] && boots="$boots,"
-            boots="$boots{\"ram\":\"$r\"}"
-          done
-          echo "boots={\"include\":[$boots]}" >> "$GITHUB_OUTPUT"
-
+          # One kernel/boot image serves every DRAM variant now (setup_arch reads
+          # the real size from the bootloader), so the matrix no longer carries a
+          # RAM dimension: one rootfs per distro/edition is enough.
           rootfs=""
           add() {
             [ -n "$rootfs" ] && rootfs="$rootfs,"
-            rootfs="$rootfs{\"distro\":\"$1\",\"ram\":\"$2\",\"edition\":\"$3\"}"
+            rootfs="$rootfs{\"distro\":\"$1\",\"edition\":\"$2\"}"
           }
           case "$edition" in
             minimal) editions="minimal" ;;
@@ -102,21 +95,20 @@ jobs:
             for d in $distros; do
               # the graphical editions are Ubuntu-only for now
               [ "$e" != "minimal" ] && [ "$d" != "ubuntu" ] && continue
-              for r in $rams; do add "$d" "$r" "$e"; done
+              add "$d" "$e"
             done
           done
           echo "rootfs={\"include\":[$rootfs]}" >> "$GITHUB_OUTPUT"
-          echo "boots: $boots"
           echo "rootfs: $rootfs"
 
-  # One kernel build; the 8 GiB boot image is produced by re-running the same
-  # build with a different DTB memory node, which only relinks the Image with the
-  # new embedded DTB instead of recompiling the kernel.
+  # One kernel build, one boot image: the DTS memory node is a ceiling and the
+  # kernel reads the real DRAM size from the bootloader tree, so the same image
+  # boots the 4/6/8 GiB units.
   boot:
     needs: plan
     runs-on: ubuntu-24.04
     timeout-minutes: 240
-    name: boot / kernel + DTBs
+    name: boot / kernel + boot image
     steps:
       - uses: actions/checkout@v4
 
@@ -175,8 +167,6 @@ jobs:
             "PANEL=$PANEL" ./build.sh
           mkdir -p boot
           cp out/boot.img boot/boot.img
-          cp out/boot.img boot/boot-6gib.img
-          cp out/boot.img boot/boot-8gib.img
           ls -l boot/
 
       - name: verify snap (squashfs) support in the kernel config
@@ -193,18 +183,11 @@ jobs:
         if: always()
         run: ccache -s || sudo ccache -s || true
 
-      - name: upload 6 GiB boot image artifact
+      - name: upload boot image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: evergo-boot-6gib
-          path: boot/boot-6gib.img
-          retention-days: 14
-
-      - name: upload 8 GiB boot image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: evergo-boot-8gib
-          path: boot/boot-8gib.img
+          name: evergo-boot
+          path: boot/boot.img
           retention-days: 14
 
   # One rootfs per distribution/edition; the kernel comes from the boot job.
@@ -215,7 +198,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.rootfs) }}
-    name: ${{ matrix.distro }}${{ matrix.edition != 'minimal' && format(' ({0})', matrix.edition) || '' }} / ${{ matrix.ram }} GiB
+    name: ${{ matrix.distro }}${{ matrix.edition != 'minimal' && format(' ({0})', matrix.edition) || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -239,7 +222,7 @@ jobs:
       - name: download prebuilt boot image
         uses: actions/download-artifact@v4
         with:
-          name: evergo-boot-${{ matrix.ram }}gib
+          name: evergo-boot
           path: prebuilt
 
       - name: build rootfs + userdata (kernel reused)
@@ -253,16 +236,15 @@ jobs:
           sudo -E env "PATH=$PATH" "HOME=$HOME" \
             "DISTRO=${{ matrix.distro }}" \
             "EDITION=${{ matrix.edition }}" \
-            "RAM_GIB=${{ matrix.ram }}" \
             "PANEL=$PANEL" "ROOTFS_MB=$rm" \
-            "BOOT_IMG=$PWD/prebuilt/boot-${{ matrix.ram }}gib.img" ./build.sh
+            "BOOT_IMG=$PWD/prebuilt/boot.img" ./build.sh
 
       - name: rename artifacts
         run: |
           set -e
-          d="${{ matrix.distro }}"; r="${{ matrix.ram }}"; e="${{ matrix.edition }}"
-          suffix="${d}-${r}gib"
-          [ "$e" != minimal ] && suffix="${d}-${e}-${r}gib"
+          d="${{ matrix.distro }}"; e="${{ matrix.edition }}"
+          suffix="${d}"
+          [ "$e" != minimal ] && suffix="${d}-${e}"
           rm -rf stage dist && mkdir -p stage dist
           cp out/boot.img      "stage/boot-${suffix}.img"
           cp out/userdata.simg "stage/userdata-${suffix}.simg"
@@ -286,7 +268,7 @@ jobs:
       - name: upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: evergo-${{ matrix.distro }}${{ matrix.edition != 'minimal' && format('-{0}', matrix.edition) || '' }}-${{ matrix.ram }}gib
+          name: evergo-${{ matrix.distro }}${{ matrix.edition != 'minimal' && format('-{0}', matrix.edition) || '' }}
           path: stage/*
           retention-days: 14
 

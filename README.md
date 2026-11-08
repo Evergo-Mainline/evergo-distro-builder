@@ -60,16 +60,16 @@
 - `userdata-<发行版>-<内存>gib.img.gz` —— 根文件系统
 
 > 🧠 **一份镜像适配全部内存**：内核会从 bootloader 读回真实 DRAM 大小并裁剪，
-> 4 / 6 / 8 GiB 机型共用同一份 `boot.img`（Release 里 `6gib`/`8gib` 文件内容相同）。
+> 4 / 6 / 8 GiB 机型共用同一份 `boot.img`，下载和刷入时**不再区分内存版本**。
 
 ### 2️⃣ 刷入
 
 ```bash
-gunzip userdata-debian-6gib.img.gz
+gunzip userdata-debian.simg.gz
 
-fastboot -S 200M flash boot_a    boot-debian-6gib.img
-fastboot -S 200M flash boot_b    boot-debian-6gib.img
-fastboot -S 200M flash userdata  userdata-debian-6gib.img
+fastboot -S 200M flash boot_a    boot-debian.img
+fastboot -S 200M flash boot_b    boot-debian.img
+fastboot -S 200M flash userdata  userdata-debian.simg
 fastboot reboot
 ```
 
@@ -215,7 +215,7 @@ out/userdata.simg      # rootfs 镜像
 GitHub Actions 全自动：
 
 1. `plan` —— 计算镜像矩阵；
-2. `boot / kernel + DTBs` —— **只编译一次内核**，再生成 6 GiB / 8 GiB 两份 DTB 对应的 boot 镜像；
+2. `boot / kernel + boot image` —— **只编译一次内核**，产出一份适配 4/6/8 GiB 的 boot 镜像；
 3. `rootfs` —— 按发行版/edition 并行 debootstrap；
 4. `release` —— 发布 `build-<N>` Release 与 artifacts。
 

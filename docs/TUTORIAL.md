@@ -49,9 +49,7 @@ SHA256SUM-<发行版>-<内存>gib.txt       ← 校验和
 
 | 你的手机 | 选 |
 |:---|:---|
-| 4 GiB RAM | `6gib`（向下兼容） |
-| 6 GiB RAM | `6gib` |
-| 8 GiB RAM | **必须** `8gib` |
+| 4 / 6 / 8 GiB RAM | 同一份镜像，不再区分 |
 
 > ⚠️ 内存变体只影响内核设备树。选错了内存映射不对，起不来。
 
@@ -59,10 +57,10 @@ SHA256SUM-<发行版>-<内存>gib.txt       ← 校验和
 
 ```bash
 # Linux / macOS
-sha256sum -c SHA256SUM-debian-6gib.txt
+sha256sum -c SHA256SUM-debian.txt
 
 # Windows
-certutil -hashfile userdata-debian-6gib.img.gz SHA256
+certutil -hashfile userdata-debian.simg.gz SHA256
 ```
 
 ---
@@ -72,14 +70,14 @@ certutil -hashfile userdata-debian-6gib.img.gz SHA256
 ### 3.1 解压
 
 ```bash
-gunzip userdata-debian-6gib.img.gz
+gunzip userdata-debian.simg.gz
 ```
 
 Windows 用 7-Zip 右键解压，或 PowerShell：
 
 ```powershell
 # 需要 7-Zip
-& "C:\Program Files\7-Zip\7z.exe" x userdata-debian-6gib.img.gz
+& "C:\Program Files\7-Zip\7z.exe" x userdata-debian.simg.gz
 ```
 
 ### 3.2 进 fastboot
@@ -93,9 +91,9 @@ fastboot devices          # 应该列出一串序列号
 ### 3.3 刷三个分区
 
 ```bash
-fastboot -S 200M flash boot_a    boot-debian-6gib.img
-fastboot -S 200M flash boot_b    boot-debian-6gib.img
-fastboot -S 200M flash userdata  userdata-debian-6gib.img
+fastboot -S 200M flash boot_a    boot-debian.img
+fastboot -S 200M flash boot_b    boot-debian.img
+fastboot -S 200M flash userdata  userdata-debian.simg
 
 fastboot reboot
 ```
@@ -122,7 +120,7 @@ libc++abi: terminating due to uncaught exception of type std::bad_alloc
 
 ```bash
 # 需要 img2simg，可从 android-sdk-libsparse-utils 或 WSL 里拿
-img2simg userdata-debian-6gib.img userdata.simg
+img2simg userdata-debian.simg userdata.simg
 fastboot -S 200M flash userdata userdata.simg
 ```
 
@@ -131,7 +129,7 @@ fastboot -S 200M flash userdata userdata.simg
 **方法二：在 WSL / Linux 里流式喂**
 
 ```bash
-gunzip -c userdata-debian-6gib.img.gz | fastboot -S 200M flash userdata -
+gunzip -c userdata-debian.simg.gz | fastboot -S 200M flash userdata -
 ```
 
 ---

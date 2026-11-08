@@ -70,8 +70,7 @@ Kernel panic - not syncing: SP/PC alignment exception: Fatal exception in interr
    若不再崩，重点查 CONN/gen4m 的 DMA/EMI 窗口是否有越界写（EMI 5 MiB @0xbf000000、
    WiFi 6 MiB @0xbe000000，都是 `no-map` 的 reserved-memory，理论上是安全的，
    但固件 DMA 不一定遵守）。
-2. **复测 8 GiB 变体**：`boot-*-8gib.img` 的 DTB memory 节点与 6 GiB 不同，若 8 GiB
-   镜像在 6 GiB 机上反而稳定/相反，说明是 memory/EMI 布局问题。
+2. **复测不同 DRAM 容量**：现在一份镜像适配 4/6/8 GiB，`evergo: trimming ...` 日志会打印实际读到的容量。
 3. **memtester**：`apt install memtester && memtester 4G 1` 跑几轮，排除 DDR 本身
    marginal 的可能（老机器 + 之前的 ext4 报错也要留意）。
 4. 复现后立刻 `./scripts/read-expdb.sh` 拿 trace；如果是内核 bug，把 trace 贴回上游
@@ -145,8 +144,7 @@ systemd-run --unit=desktop-install --collect --no-block \
 
 boot job 之前用默认 `DISTRO=arch` 跑了一遍完整 rootfs，导致每次“内核构建”日志里都在编
 Arch。现在 `KERNEL_ONLY=1` 会在 `rootfs` 段之前直接跳过所有发行版 rootfs，日志会出现
-`kernel-only build: distribution rootfs + userdata skipped`；CI run 50 的 `boot / 6 GiB`
-和 `boot / 8 GiB` 已验证不再编任何发行版。
+`kernel-only build: distribution rootfs + userdata skipped`；CI run 50 的 单个 `boot / kernel + boot image` 已验证不再编任何发行版。
 
 
 ### build-51..53 的 4 GiB 上限是个意外（已在下一个提交撤回）

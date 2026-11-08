@@ -55,8 +55,8 @@ Fork 仓库 → **Actions** → 「build evergo images」→ **Run workflow**
 **内核只按内存变体编译，不再每个发行版编译一次，而且 boot job 不再构建任何发行版 rootfs**：
 
 ```
-plan ──┬─ boot / 6 GiB   （编译内核 + initramfs + arch rootfs → boot-6gib.img）
-       └─ boot / 8 GiB   （同上，DTB/Image 与 6 GiB 不同，所以必须分开编）
+plan ── boot / kernel + boot image   （编译一次内核 + initramfs → boot.img）
+       （一份镜像适配 4/6/8 GiB：DRAM 大小由 setup_arch 从 bootloader 读回）
 
        └─ distro / {arch,debian,ubuntu,fedora} × {6,8} GiB
             下载对应 boot-<ram>gib.img，只构建自己的 rootfs + userdata
@@ -135,7 +135,7 @@ KERNEL_SRC=/root/linux-evergo ./build.sh
 ARCH_TARBALL=/path/ArchLinuxARM-aarch64-latest.tar.gz ./build.sh
 
 # 只构建 rootfs，复用已经编好的 boot.img（CI 的 distro job 就是这么干的）
-BOOT_IMG=out-boot/boot-6gib.img DISTRO=debian RAM_GIB=6 ./build.sh
+BOOT_IMG=out-boot/boot.img DISTRO=debian ./build.sh
 ```
 
 ---
