@@ -103,3 +103,18 @@
   主线目前没有输出 CMMCLK，sensor 不上电时钟不会响应 I2C。
 
 结论：M1 的「供电 + I2C + PMIC」已打通，下一步 M2 需要把 CMMCLK0 配出来。
+
+### M1.5（2026-11-08 补充）
+
+把板级 DTS 里的 `mt6359_vcamio_ldo_reg` 设为 `regulator-always-on`（1.8 V）后重新扫描：
+
+```
+/dev/i2c-0 ACK: 0x28 0x58        ← 0x28 = WL2866D（reg 0x03 = 0x64）
+/dev/i2c-8 ACK: 0x50 0x51        ← camera EEPROM（vendor 表里 i2c8@0x51）
+```
+
+**进展**：sensor 的 I/O 供电（vcamio）和外部 PMIC 都已确认，EEPROM 已经能在总线上看到。
+
+**仍缺 MCLK**：sensor（S5KJN1 @ 0x20）还是不 ACK。主线 topckgen 的 `camtg_sel` mux
+parent 列表里有 `univpll_192m_d8`（= 24 MHz），就是 vendor 给 sensor 的 CMMCLK 源；
+只差一个消费者去 enable `camtg_sel` 并把 CMMCLK0 的 pinmux 切过去。
