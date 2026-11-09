@@ -419,7 +419,7 @@ R="$WORK/rootfs"
 rm -rf "$R"; mkdir -p "$R"
 
 export WORK
-export MIRROR_HOST ARCH_TARBALL
+export MIRROR_HOST ARCH_TARBALL EVERGO_INSECURE_SSL
 if [ ! -x "$HERE/scripts/distro-$DISTRO.sh" ]; then
     echo "  !! no scripts/distro-$DISTRO.sh (pick arch, debian, ubuntu or fedora)"
     exit 1

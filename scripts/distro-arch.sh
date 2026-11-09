@@ -21,6 +21,11 @@ ARCH_TARBALL="${ARCH_TARBALL:-}"
 WORK="${WORK:-/tmp/evergo-work}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 KEY="$HERE/../config/keys/archlinuxarm.asc"
+# Optional: disable TLS certificate verification.  Only needed when the build
+# has to go through a local MITM proxy (e.g. 127.0.0.1:31181); CI keeps TLS on.
+INSECURE_SSL="${EVERGO_INSECURE_SSL:-0}"
+CURL_TLS=()
+[ "$INSECURE_SSL" = 1 ] && CURL_TLS=(-k)
 
 log() { printf '  %s\n' "$*"; }
 
@@ -33,6 +38,7 @@ mkdir -p "$R" "$WORK"
 # ---------------------------------------------------------------- tarball ----
 TARBALL_NAME="ArchLinuxARM-aarch64-latest.tar.gz"
 BASE_PRIMARY="https://$MIRROR_HOST/archlinuxarm/os"
+BASE_OFFICIAL="https://mirror.archlinuxarm.org/os"
 BASE_FALLBACK="https://mirrors.tuna.tsinghua.edu.cn/archlinuxarm/os"
 # Where the tarball (and its .md5/.sig) came from; used to verify a cached copy.
 TARBALL_BASE="$BASE_PRIMARY"
@@ -44,9 +50,9 @@ else
     if [ ! -s "$ARCH_TARBALL" ]; then
         log "downloading the Arch Linux ARM tarball"
         ok=0
-        for base in "$BASE_PRIMARY" "$BASE_FALLBACK"; do
+        for base in "$BASE_PRIMARY" "$BASE_OFFICIAL" "$BASE_FALLBACK"; do
             log "  $base/$TARBALL_NAME"
-            if curl -fsSL --max-time 1800 -o "$ARCH_TARBALL" "$base/$TARBALL_NAME"; then
+            if curl -fsSL "${CURL_TLS[@]}" --max-time 1800 -o "$ARCH_TARBALL" "$base/$TARBALL_NAME"; then
                 ok=1; TARBALL_BASE="$base"; break
             fi
             rm -f "$ARCH_TARBALL"
@@ -64,10 +70,12 @@ fi
 verify_md5 "$ARCH_TARBALL" "$TARBALL_BASE/$TARBALL_NAME.md5" "Arch Linux ARM tarball"
 # The signature URL may be on the mirror the tarball came from; fall back to the
 # other mirror when that one lacks it.
-if ! curl -fsSL --max-time 30 -o /dev/null "$TARBALL_BASE/$TARBALL_NAME.sig" 2>/dev/null; then
-    if curl -fsSL --max-time 30 -o /dev/null "$BASE_PRIMARY/$TARBALL_NAME.sig" 2>/dev/null; then
+if ! curl -fsSL "${CURL_TLS[@]}" --max-time 30 -o /dev/null "$TARBALL_BASE/$TARBALL_NAME.sig" 2>/dev/null; then
+    if curl -fsSL "${CURL_TLS[@]}" --max-time 30 -o /dev/null "$BASE_PRIMARY/$TARBALL_NAME.sig" 2>/dev/null; then
         TARBALL_BASE="$BASE_PRIMARY"
-    elif curl -fsSL --max-time 30 -o /dev/null "$BASE_FALLBACK/$TARBALL_NAME.sig" 2>/dev/null; then
+    elif curl -fsSL "${CURL_TLS[@]}" --max-time 30 -o /dev/null "$BASE_OFFICIAL/$TARBALL_NAME.sig" 2>/dev/null; then
+        TARBALL_BASE="$BASE_OFFICIAL"
+    elif curl -fsSL "${CURL_TLS[@]}" --max-time 30 -o /dev/null "$BASE_FALLBACK/$TARBALL_NAME.sig" 2>/dev/null; then
         TARBALL_BASE="$BASE_FALLBACK"
     fi
 fi
@@ -85,9 +93,17 @@ sed -i 's/^#DisableSandboxSyscalls/DisableSandboxSyscalls/' "$R/etc/pacman.conf"
 # CheckSpace stats the cachedir's mount point; a plain directory chroot is not one, so
 # it reports "not enough free disk space" and aborts.
 sed -i 's/^CheckSpace/#CheckSpace/' "$R/etc/pacman.conf"
+if [ "$INSECURE_SSL" = 1 ]; then
+    echo 'XferCommand = /usr/bin/curl -k -L -C - -f -o %o %u' >> "$R/etc/pacman.conf"
+fi
 
 cat > "$R/etc/pacman.d/mirrorlist" <<ML
-# build-time mirror list
+# build-time mirror list.  The official Arch Linux ARM CDN is first: the OCF
+# mirror intermittently throttles GitHub runners to <1 B/s and the Chinese
+# mirrors are normally unreachable from them.
+Server = https://mirror.archlinuxarm.org/\$arch/\$repo
+Server = https://de.mirror.archlinuxarm.org/\$arch/\$repo
+Server = https://eu.mirror.archlinuxarm.org/\$arch/\$repo
 Server = https://${MIRROR_HOST}/archlinuxarm/\$arch/\$repo
 Server = https://mirrors.tuna.tsinghua.edu.cn/archlinuxarm/\$arch/\$repo
 Server = https://mirrors.ustc.edu.cn/archlinuxarm/\$arch/\$repo
@@ -104,7 +120,8 @@ cp -f "$R/etc/hosts" "$WORK/hosts.bak"
 # DNS does not resolve inside a qemu-user chroot, so pin the mirror addresses.  getent
 # may return an IPv6 record first, and an IPv6 pin makes curl fail instantly because the
 # chroot has no IPv6 route, hence ahostsv4.
-for h in "$MIRROR_HOST" mirrors.tuna.tsinghua.edu.cn mirrors.ustc.edu.cn; do
+for h in "$MIRROR_HOST" mirror.archlinuxarm.org de.mirror.archlinuxarm.org \
+         eu.mirror.archlinuxarm.org mirrors.tuna.tsinghua.edu.cn mirrors.ustc.edu.cn; do
     ip=$(getent ahostsv4 "$h" 2>/dev/null | awk 'NR==1{print $1}')
     [ -z "$ip" ] && ip=$(getent hosts "$h" 2>/dev/null | awk '$1 ~ /^[0-9]+\./ {print $1; exit}')
     if [ -n "$ip" ]; then
@@ -115,14 +132,27 @@ done
 
 chroot "$R" /usr/bin/qemu-aarch64-static /usr/bin/bash -c '
 set -e
+# A flaky mirror connection must not fail the whole image build: pacman drops a
+# mirror after too many errors, so retry the transaction a few times.
+retry_pacman() {
+  local n=0
+  while :; do
+    if "$@"; then return 0; fi
+    n=$((n + 1))
+    [ "$n" -ge 4 ] && return 1
+    echo "  pacman attempt $n failed, retrying in $((n * 5))s..." >&2
+    rm -f /var/lib/pacman/db.lck
+    sleep $((n * 5))
+  done
+}
 pacman-key --init >/dev/null 2>&1
 pacman-key --populate archlinuxarm >/dev/null 2>&1
 # Full upgrade, not just a sync: the tarball is a monthly snapshot, so -Sy alone
 # would keep shipping packages that are weeks out of date.
-pacman -Syu --noconfirm >/dev/null
+retry_pacman pacman -Syu --noconfirm --disable-download-timeout >/dev/null
 # WiFi station mode (evergo-wifi) needs wpa_supplicant/iw/dhcpcd; wireless-regdb
 # provides the signed regulatory.db cfg80211 asks for at startup.
-pacman -S --noconfirm --needed \
+retry_pacman pacman -S --noconfirm --needed --disable-download-timeout \
   btop htop fastfetch git wget curl nano vim tmux rsync unzip zip file less \
   man-db which pacman-contrib net-tools bind-tools iputils traceroute mtr whois \
   lm_sensors lsof strace sudo wpa_supplicant iw dhcpcd wireless-regdb \
@@ -146,9 +176,9 @@ echo "  $(pacman -Q | wc -l) packages"
 cat > "$R/etc/pacman.d/mirrorlist" <<'ML'
 # Arch Linux ARM mirrors.  Tsinghua and USTC are reachable from mainland China; the
 # official host is kept as a fallback.
+Server = https://mirror.archlinuxarm.org/$arch/$repo
 Server = https://mirrors.tuna.tsinghua.edu.cn/archlinuxarm/$arch/$repo
 Server = https://mirrors.ustc.edu.cn/archlinuxarm/$arch/$repo
-Server = https://mirror.archlinuxarm.org/$arch/$repo
 ML
 
 # ---------------------------------------------------------------- trim ------
