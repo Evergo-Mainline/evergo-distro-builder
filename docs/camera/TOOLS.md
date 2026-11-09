@@ -55,6 +55,9 @@ cat /sys/kernel/debug/camraw/irqstats
 
 ## 4. 命令行寄存器工具
 
+> 源码已收入本仓库：**[tools/camera/](../../tools/camera/)**（含 Makefile，`make` 即可交叉编译出 aarch64 静态二进制）。
+> 下表的工具与 `tools/camera/README.md` 一一对应。
+
 | 工具 | 用法 | 说明 |
 |:---|:---|:---|
 | `campeek` | `campeek 0x1a030004 [count] [stride]` | 通过 /dev/mem mmap 读物理寄存器 |
