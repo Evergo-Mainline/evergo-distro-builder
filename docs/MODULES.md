@@ -86,5 +86,5 @@ fastboot reboot
 2. 蓝牙文件传输需实测（内核配置已补）
 3. TSL2522 ALS 不可用
 4. LSM6DSO 不可用
-5. 摄像头/Modem/指纹/NFC/快充协议 IC 未实现（未在本次范围）
+5. 相机：`camera-test` 分支 bring-up 中（第一帧未取得，见 [相机文档](camera/README.md)）；Modem/指纹/NFC/快充协议 IC 未实现
 6. suspend/s2idle 未验证通过

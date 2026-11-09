@@ -121,7 +121,8 @@ CPU/GPU DVFS 打开后若无 cooling，满载温度会从 80 °C 升到 102 °C 
 | 大核持续 2.4 GHz | 受 85 °C 温控限制，仅短时爆发 |
 | GPU 1068 MHz | 已达 vendor sign-off 上限 |
 | 蓝牙地址 | BT 核无出厂地址，BlueZ 暂不可用 |
-| 相机 / 基带 | 未移植，见 [CAMERA-MODEM](CAMERA-MODEM.md) |
+| 相机 | `camera-test` 分支 bring-up 中：sensor/CSI-2/TG 已通，第一帧未取得，见 [相机文档](camera/README.md) |
+| 基带 | 未移植，见 [CAMERA-MODEM](CAMERA-MODEM.md) |
 | PSCI idle | `cpuidle-exp` 实验分支不稳定 |
 
 ## 抓内核崩溃日志（无串口）

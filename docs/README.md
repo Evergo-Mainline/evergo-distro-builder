@@ -30,7 +30,12 @@
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 按症状查：启动失败/不扩容/连不上/构建报错 | 出问题的人 |
 | [VENDOR-PORT.md](VENDOR-PORT.md) | 从 vendor 内核移植功能的思路与踩坑 | 深入开发者 |
 | [EVERGO-CONTINUE.md](EVERGO-CONTINUE.md) | 后续开发计划与待办 | 想接着做的人 |
-| [CAMERA-MODEM.md](CAMERA-MODEM.md) | 相机/基带移植调研记录 | 做外设移植的人 |
+| [CAMERA-MODEM.md](CAMERA-MODEM.md) | 相机/基带移植调研记录（相机部分已过时，见 camera/） | 做外设移植的人 |
+| [camera/README.md](camera/README.md) | 📷 相机 bring-up 总览：当前状态、文档索引 | 跟进相机进展 |
+| [camera/BRINGUP.md](camera/BRINGUP.md) | 相机 bring-up 全过程：已完成、已排除、阻塞点、下一步 | 做相机驱动的人 |
+| [camera/REGISTERS.md](camera/REGISTERS.md) | 相机寄存器/数据格式速查（CAM_A/CQ/SENINF/CAMSV） | 查寄存器/写驱动 |
+| [camera/TOOLS.md](camera/TOOLS.md) | 相机调试工具（camraw debugfs、campeek 等）与真机流程 | 复现实测 |
+| [camera/MATERIALS.md](camera/MATERIALS.md) | 相机原始资料清单（Android dump、厂商库、历史镜像） | 找原始数据 |
 
 ---
 

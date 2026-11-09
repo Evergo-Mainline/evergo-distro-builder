@@ -25,7 +25,7 @@
 | 休眠 s2idle | 🟡 | 已验证可进/出（DVFS 同时启用也正常），resume 后显示/触摸/调频恢复；默认不自动休眠 |
 | 传感器 | 🟡 | TSL2522 光线、LSM6DSO 加速度、AK09918 磁力计：ALS/加速度可用，磁力计/陀螺仍需 SCP hub 支持 |
 | 基带 / SIM | ❌ | 无 CCCI/MDF 驱动，通话/短信/数据暂不支持，见 [CAMERA-MODEM](CAMERA-MODEM.md) |
-| 相机 | ❌ | sensor 驱动有，但无 camsys ISP/seninf 平台驱动，见 [CAMERA-MODEM](CAMERA-MODEM.md) |
+| 相机 | 🟡 | `camera-test` 分支：S5KJN1 已出 RAW10 像素、CSI-2/SENINF/PHY 与 CAM_A TG 已跑通；像素未进入 TG 像素通路、CQ 未启动，第一帧未取得。见 [相机文档](camera/README.md) |
 | NFC | ❌ | 本机无 NFC 硬件 |
 
 ## 面板与触摸

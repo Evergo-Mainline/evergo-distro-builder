@@ -4,6 +4,11 @@
 
 ## 摄像头
 
+> **2025-11 更新**：本节"没有平台驱动"的旧结论已过时。
+> 相机 bring-up 现在在 `camera-test` 分支进行，已实现 SENINF/CSI-2、CAMSV30、CAMRAW 驱动与 vendor S5KJN1 寄存器表，
+> 并已验证 sensor 输出真实 RAW10 像素、CAM/CAMSV 能收到帧同步；**第一帧仍未取得**（像素未进入 TG 像素通路、CAM_A CQ 不执行）。
+> 最新状态、寄存器表与调试工具见 **[相机文档](camera/README.md)**；基带部分仍以本节为准。
+
 ### 硬件
 
 来自 stock ROM `evergo_images_V14.0.4.0.TGBCNXM_13.0` 的 `super.img`（vendor 分区）：
@@ -20,7 +25,7 @@
 
 好消息：常见 sensor 的主线驱动在树里都有 —— `drivers/media/i2c/s5kjn1.c`、`ov8856.c`、`imx355.c`、`ov02a10.c`/`ov02c10.c`。
 
-坏消息：**没有 MT6833 的相机平台驱动**。vendor 链路是：
+~~坏消息：没有 MT6833 的相机平台驱动~~（旧结论；现在 `camera-test` 分支已有 seninf/camsv/camraw 驱动，见 [相机文档](camera/README.md)）。vendor 链路是：
 
 ```
 sensor (MIPI CSI-2) -> seninf (CSI-2 receiver) -> camsys/imgsys ISP -> MDP -> DRM
