@@ -43,7 +43,7 @@
 | 位置 | 内容 |
 |:---|:---|
 | `D:\evergo\tools\` | 设备端工具：`camcap`、`campeek`、`campoke`、`camdump`、`camgraph`、`camdirect7`、`caminfo` 等 |
-| `/root/*.c`（WSL） | 上述工具的源码（camcap.c、campeek.c 等） |
+| 仓库 [`tools/camera/`](../../tools/camera/) | 上述工具源码 + Makefile（`make` 交叉编译 aarch64 静态二进制） |
 | `D:\evergo\agent-builds\` | 历史 boot 镜像：`camtest19`…`camtest28`、已知可用基线 `known-good-boot.img` |
 
 ## 5. 复现抓取的方法概要
